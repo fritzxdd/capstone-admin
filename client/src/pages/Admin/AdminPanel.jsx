@@ -37,17 +37,18 @@ const AdminPanel = ({ user, onLogout }) => {
   }, [user]);
 
   useEffect(() => {
-    if (adminLawFirm) {
+    if (user.uid) {
       setIsLoading(true);
       const lawyersRef = ref(db, "lawyers");
       onValue(lawyersRef, (snapshot) => {
         if (snapshot.exists()) {
+          // Filter lawyers by adminUID instead of lawFirm
           const filteredLawyers = Object.entries(snapshot.val())
             .map(([id, lawyer]) => ({
               id,
               ...lawyer
             }))
-            .filter((lawyer) => lawyer.lawFirm === adminLawFirm);
+            .filter((lawyer) => lawyer.adminUID === user.uid);
           
           setLawyers(filteredLawyers);
           setStats(prev => ({
@@ -57,7 +58,7 @@ const AdminPanel = ({ user, onLogout }) => {
           
           if (analytics) {
             logEvent(analytics, "lawyers_list_loaded", { 
-              law_firm: adminLawFirm, 
+              admin_id: user.uid, 
               count: filteredLawyers.length 
             });
           }
@@ -65,7 +66,7 @@ const AdminPanel = ({ user, onLogout }) => {
         setIsLoading(false);
       });
     }
-  }, [adminLawFirm]);
+  }, [user.uid]); // Depend on user.uid instead of adminLawFirm
 
   // Fetch appointments data
   useEffect(() => {
@@ -91,6 +92,10 @@ const AdminPanel = ({ user, onLogout }) => {
           
           // Structure the data for a line graph by month
           Object.entries(allAppointments).forEach(([id, appointment]) => {
+            // Only count appointments for the current admin's lawyers
+            const lawyerExists = lawyers.some(lawyer => lawyer.id === appointment.lawyerId);
+            if (!lawyerExists) return;
+            
             totalCount++;
             
             if (appointment.status === 'pending') {
@@ -255,7 +260,7 @@ const AdminPanel = ({ user, onLogout }) => {
               ) : (
                 <div className="empty-state">
                   <div className="empty-icon lawyer-empty-icon"></div>
-                  <p>No lawyers found in your law firm.</p>
+                  <p>No lawyers found for this admin.</p>
                   <Button 
                     variant="primary" 
                     icon="add"
