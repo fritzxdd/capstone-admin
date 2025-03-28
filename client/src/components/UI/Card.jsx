@@ -7,10 +7,23 @@ const Card = ({
   className = '',
   headerClassName = '',
   contentClassName = '',
-  footer = null
+  footer = null,
+  variant = 'default',
+  onClick = null
 }) => {
+  const variantClasses = {
+    'default': '',
+    'primary': 'card-primary',
+    'secondary': 'card-secondary',
+    'accent': 'card-accent',
+    'outline': 'card-outline'
+  };
+
+  const cardClass = `card ${variantClasses[variant] || ''} ${className}`;
+  const isClickable = onClick ? 'card-clickable' : '';
+  
   return (
-    <div className={`card ${className}`}>
+    <div className={`${cardClass} ${isClickable}`} onClick={onClick}>
       {(title || subtitle) && (
         <div className={`card-header ${headerClassName}`}>
           {title && <h2 className="card-title">{title}</h2>}

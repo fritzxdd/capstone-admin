@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../services/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { ref, get } from "firebase/database";
-import "../../styles/index.css";
+import { auth, db, analytics } from "../../services/firebase";
+import { logEvent } from "firebase/analytics";
 import logo from "../../assets/logo.png";
 
 const Login = () => {
@@ -21,15 +21,11 @@ const Login = () => {
     setLoading(true);
   
     try {
-      console.log("Attempting login with:", email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log("User authenticated:", user);
       
       const adminRef = ref(db, "law_firm_admin/" + user.uid);
       const snapshot = await get(adminRef);
-      
-      console.log("Admin data check:", snapshot.exists());
       
       if (snapshot.exists()) {
         const adminData = snapshot.val();
@@ -40,16 +36,35 @@ const Login = () => {
           sessionStorage.setItem("adminData", JSON.stringify(adminData));
         }
         
-        console.log("Login successful, redirecting to dashboard");
+        // Track successful login event
+        if (analytics) {
+          logEvent(analytics, "login", { 
+            method: "email_password",
+            admin_id: user.uid
+          });
+        }
+        
         navigate("/");
       } else {
-        console.log("Not an admin, signing out");
         setError("Access Denied: You are not an admin!");
         await signOut(auth);
+        
+        if (analytics) {
+          logEvent(analytics, "login_error", { 
+            error_type: "not_admin"
+          });
+        }
       }
     } catch (error) {
-      console.error("Login error:", error);
-      setError(`Login failed: ${error.message}`);
+      setError(`${error.message.includes("auth/invalid-credential") ? 
+        "Invalid email or password. Please try again." : 
+        `Login failed: ${error.message}`}`);
+      
+      if (analytics) {
+        logEvent(analytics, "login_error", { 
+          error_type: error.code || "unknown_error"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -63,11 +78,11 @@ const Login = () => {
         </div>
         
         <div className="login-form-container">
-          <h1>Welcome back</h1>
-          <p className="login-subtitle">Please enter your details</p>
+          <h1>Welcome to WeAssist</h1>
+          <p className="login-subtitle">Sign in to manage your law firm</p>
           
           {error && (
-            <div className="error-message" style={{ color: 'red', marginBottom: '15px' }}>
+            <div className="error-message">
               {error}
             </div>
           )}
@@ -81,7 +96,6 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                style={{ color: "black" }}
               />
             </div>
             
@@ -93,7 +107,6 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{ color: "black" }}
               />
             </div>
             
@@ -125,7 +138,10 @@ const Login = () => {
       
       <div className="login-right">
         <div className="illustration-container">
-          {/* Illustration container */}
+          <div className="login-illustration-text">
+            <h2>Legal Management Made Simple</h2>
+            <p>Manage your law firm with our comprehensive platform designed specifically for legal professionals.</p>
+          </div>
         </div>
       </div>
     </div>

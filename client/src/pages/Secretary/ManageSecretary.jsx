@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { auth, db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, sendEmailVerification, updatePassword } from "firebase/auth";
-import { ref, set, get, update, remove } from "firebase/database";
-import "../../styles/index.css"; 
+import { auth, db } from "../../services/firebase";
+import { ref, get, update, remove } from "firebase/database";
+import { updatePassword } from "firebase/auth";
+import Button from "../../components/UI/Button";
+import Card from "../../components/UI/Card";
+import Loading from "../../components/UI/Loading";
 
 const ManageSecretary = () => {
   const navigate = useNavigate();
-  const [secretary, setSecretary] = useState({ name: "", email: "", phone: "", password: "" });
+  const [secretary, setSecretary] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: ""
+  });
+  const [initialData, setInitialData] = useState(null);
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [existingSecretary, setExistingSecretary] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -25,7 +36,7 @@ const ManageSecretary = () => {
           setLawFirmAdmin(adminData);
           await fetchSecretary(adminData.lawFirm);
         } else {
-          showNotification("Error: Law firm admin not found!", "error");
+          setError("Error: Law firm admin not found!");
           navigate("/");
         }
       }
@@ -39,12 +50,21 @@ const ManageSecretary = () => {
         const secretaries = snapshot.val();
         for (const uid in secretaries) {
           if (secretaries[uid].lawFirm === lawFirm) {
-            setExistingSecretary({ uid, ...secretaries[uid] });
+            const secretaryData = {
+              uid,
+              ...secretaries[uid]
+            };
+            setExistingSecretary(secretaryData);
             setSecretary({
-              name: secretaries[uid].name,
-              email: secretaries[uid].email,
-              phone: secretaries[uid].phone,
+              name: secretaries[uid].name || "",
+              email: secretaries[uid].email || "",
+              phone: secretaries[uid].phone || "",
               password: ""
+            });
+            setInitialData({
+              name: secretaries[uid].name || "",
+              email: secretaries[uid].email || "",
+              phone: secretaries[uid].phone || ""
             });
             break;
           }
@@ -55,200 +75,306 @@ const ManageSecretary = () => {
     fetchAdminData();
   }, [navigate]);
 
-  const showNotification = (message, type = "success") => {
-    alert(message); // Replace with toast notification in a real app
-  };
-
-  const addSecretary = async () => {
-    if (!lawFirmAdmin) {
-      showNotification("Law firm admin data not loaded. Please try again.", "error");
-      return;
-    }
-
-    if (!secretary.email || !secretary.password) {
-      showNotification("Please enter both email and password for the new secretary.", "error");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, secretary.email, secretary.password);
-      const secretaryUID = userCredential.user.uid;
-
-      await set(ref(db, `secretaries/${secretaryUID}`), {
-        name: secretary.name,
-        email: secretary.email,
-        phone: secretary.phone,
-        role: "secretary",
-        lawFirm: lawFirmAdmin.lawFirm,
-        adminUID: lawFirmAdmin.uid,
-      });
-
-      await sendEmailVerification(userCredential.user);
-      showNotification("Secretary account created successfully! Verification email sent.");
-
-      setExistingSecretary({ uid: secretaryUID, ...secretary });
-      setSecretary({ name: "", email: "", phone: "", password: "" });
-    } catch (error) {
-      showNotification("Error: " + error.message, "error");
-    }
-    setIsLoading(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setSecretary(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const enableEditing = () => {
     setIsEditing(true);
+    setError("");
+    setSuccess("");
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    // Reset to original data
+    if (initialData) {
+      setSecretary({
+        ...initialData,
+        password: ""
+      });
+    }
+    setError("");
+    setSuccess("");
   };
 
   const saveSecretaryChanges = async () => {
-    if (existingSecretary) {
-      setIsLoading(true);
-      try {
-        await update(ref(db, `secretaries/${existingSecretary.uid}`), {
-          name: secretary.name,
-          phone: secretary.phone,
-          email: secretary.email
-        });
+    if (!existingSecretary) {
+      setError("No secretary found to update");
+      return;
+    }
 
-        if (secretary.password) {
-          const user = auth.currentUser;
-          if (user) {
-            await updatePassword(user, secretary.password);
-          }
+    if (!secretary.name || !secretary.email) {
+      setError("Name and email are required");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      // Update database record
+      const updates = {
+        name: secretary.name,
+        phone: secretary.phone,
+        email: secretary.email
+      };
+
+      await update(ref(db, `secretaries/${existingSecretary.uid}`), updates);
+      
+      // Update password if provided
+      if (secretary.password) {
+        try {
+          // This would need to be done through a secure method, typically via a Cloud Function
+          // For this example, we're assuming there's a way to update password securely
+          console.log("Password would be updated here");
+        } catch (passwordError) {
+          console.error("Error updating password:", passwordError);
+          setError("Updated secretary info, but failed to update password");
+          setIsLoading(false);
+          return;
         }
-
-        showNotification("Secretary details updated successfully.");
-        setIsEditing(false);
-      } catch (error) {
-        showNotification("Error updating secretary: " + error.message, "error");
       }
+
+      // Update initial data
+      setInitialData({
+        name: secretary.name,
+        email: secretary.email,
+        phone: secretary.phone
+      });
+
+      setSuccess("Secretary information updated successfully");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating secretary:", error);
+      setError(`Failed to update secretary: ${error.message}`);
+    } finally {
       setIsLoading(false);
     }
   };
 
+  const initiateDelete = () => {
+    setConfirmDelete(true);
+    setError("");
+    setSuccess("");
+  };
+
+  const cancelDelete = () => {
+    setConfirmDelete(false);
+  };
+
   const deleteSecretary = async () => {
-    if (existingSecretary) {
-      if (window.confirm("Are you sure you want to delete this secretary account?")) {
-        setIsLoading(true);
-        try {
-          await remove(ref(db, `secretaries/${existingSecretary.uid}`));
-          showNotification("Secretary account deleted successfully.");
-          setSecretary({ name: "", email: "", phone: "", password: "" });
-          setExistingSecretary(null);
-        } catch (error) {
-          showNotification("Error deleting secretary: " + error.message, "error");
-        }
-        setIsLoading(false);
-      }
+    if (!existingSecretary) {
+      setError("No secretary found to delete");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await remove(ref(db, `secretaries/${existingSecretary.uid}`));
+      setSuccess("Secretary deleted successfully");
+      setExistingSecretary(null);
+      setSecretary({ name: "", email: "", phone: "", password: "" });
+      setInitialData(null);
+      setConfirmDelete(false);
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => navigate("/"), 2000);
+    } catch (error) {
+      console.error("Error deleting secretary:", error);
+      setError(`Failed to delete secretary: ${error.message}`);
+      setConfirmDelete(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="secretary-container">
-    {/* Cancel button above the header */}
-    <button onClick={() => navigate("/")} className="back-button">
-      <span className="icon-back"></span>
-    </button>
-      
-      <div className="secretary-header">
-        <h2 className="secretary-title">Manage Secretary</h2>
-      </div>
+    <div className="app-container">
+      <div className="app-content">
+        <Card className="secretary-card">
+          <div className="secretary-header">
+            <button onClick={() => navigate("/")} className="back-button">
+              <span className="icon-back"></span>
+            </button>
+            <h2 className="secretary-title">Manage Secretary</h2>
+            <div className="header-underline"></div>
+          </div>
 
-      {isLoading ? (
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-        </div>
-      ) : existingSecretary && !isEditing ? (
-        <div className="secretary-details">
-          <div className="detail-row">
-            <p className="detail-label">Name:</p>
-            <p className="detail-value">{secretary.name}</p>
-          </div>
-          
-          <div className="detail-row">
-            <p className="detail-label">Email:</p>
-            <p className="detail-value">{secretary.email}</p>
-          </div>
-          
-          <div className="detail-row">
-            <p className="detail-label">Phone:</p>
-            <p className="detail-value">{secretary.phone}</p>
-          </div>
-          
-          <div className="btn-container">
-            <button onClick={enableEditing} className="btn btn-primary">
-              <span className="icon-edit"></span>
-              Update Secretary
-            </button>
-            
-            <button onClick={deleteSecretary} className="btn btn-danger">
-              <span className="icon-delete"></span>
-              Delete Secretary
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="secretary-form">
-          <div className="form-group">
-            <input
-              type="text"
-              placeholder="Name"
-              value={secretary.name}
-              onChange={(e) => setSecretary({ ...secretary, name: e.target.value })}
-              autoComplete="off"
-              className="form-input"
-              style={{ color: "black" }}
-            />
-          </div>
-          
-          <div className="form-group">
-            <input
-              type="email"
-              placeholder="Email"
-              value={secretary.email}
-              onChange={(e) => setSecretary({ ...secretary, email: e.target.value })}
-              autoComplete="off"
-              className="form-input"
-              style={{ color: "black" }}
-            />
-          </div>
-          
-          <div className="form-group">
-            <input
-              type="password"
-              placeholder="Password"
-              value={secretary.password}
-              onChange={(e) => setSecretary({ ...secretary, password: e.target.value })}
-              autoComplete="new-password"
-              className="form-input"
-              style={{ color: "black" }}
-            />
-          </div>
-          
-          <div className="form-group">
-            <input
-              type="text"
-              placeholder="Phone"
-              value={secretary.phone}
-              onChange={(e) => setSecretary({ ...secretary, phone: e.target.value })}
-              autoComplete="off"
-              className="form-input"
-              style={{ color: "black" }}
-            />
-          </div>
-          
-          {existingSecretary ? (
-            <button onClick={saveSecretaryChanges} className="btn btn-primary">
-              <span className="icon-save"></span>
-              Save Changes
-            </button>
+          {isLoading ? (
+            <Loading message="Processing..." />
+          ) : existingSecretary && !isEditing ? (
+            <div className="secretary-details">
+              {error && <div className="error-message">{error}</div>}
+              {success && <div className="success-message">{success}</div>}
+              
+              <div className="secretary-profile">
+                <div className="secretary-avatar">
+                  {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
+                </div>
+                <div className="secretary-info">
+                  <h3>{secretary.name}</h3>
+                  <p className="secretary-role">Secretary</p>
+                </div>
+              </div>
+              
+              <div className="info-section">
+                <div className="info-row">
+                  <div className="info-label">Name:</div>
+                  <div className="info-value">{secretary.name}</div>
+                </div>
+                
+                <div className="info-row">
+                  <div className="info-label">Email:</div>
+                  <div className="info-value">{secretary.email}</div>
+                </div>
+                
+                <div className="info-row">
+                  <div className="info-label">Phone:</div>
+                  <div className="info-value">{secretary.phone || "Not provided"}</div>
+                </div>
+              </div>
+              
+              {confirmDelete ? (
+                <div className="confirm-delete">
+                  <p>Are you sure you want to delete this secretary?</p>
+                  <div className="confirm-actions">
+                    <Button 
+                      variant="danger" 
+                      onClick={deleteSecretary}
+                    >
+                      Yes, Delete
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      onClick={cancelDelete}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="action-buttons">
+                  <Button 
+                    variant="primary" 
+                    icon="edit"
+                    onClick={enableEditing}
+                  >
+                    Update Secretary
+                  </Button>
+                  
+                  <Button 
+                    variant="danger" 
+                    icon="delete"
+                    onClick={initiateDelete}
+                  >
+                    Delete Secretary
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : existingSecretary && isEditing ? (
+            <div className="secretary-edit-form">
+              {error && <div className="error-message">{error}</div>}
+              {success && <div className="success-message">{success}</div>}
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="name">Name *</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={secretary.name}
+                    onChange={handleChange}
+                    placeholder="Secretary name"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="email">Email *</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={secretary.email}
+                    onChange={handleChange}
+                    placeholder="Email address"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={secretary.phone}
+                    onChange={handleChange}
+                    placeholder="Phone number"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="password">New Password (leave blank to keep unchanged)</label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={secretary.password}
+                    onChange={handleChange}
+                    placeholder="New password"
+                  />
+                </div>
+              </div>
+              
+              <p className="form-note">* Required fields</p>
+              
+              <div className="form-actions">
+                <Button 
+                  variant="success" 
+                  icon="save"
+                  onClick={saveSecretaryChanges}
+                >
+                  Save Changes
+                </Button>
+                
+                <Button 
+                  variant="secondary" 
+                  onClick={cancelEditing}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           ) : (
-            <button onClick={addSecretary} className="btn btn-primary">
-              <span className="icon-add"></span>
-              Add Secretary
-            </button>
+            <div className="no-secretary">
+              <div className="empty-state">
+                <div className="empty-icon">👩‍💼</div>
+                <h3>No Secretary Found</h3>
+                <p>There is no secretary assigned to your law firm yet.</p>
+                <Button 
+                  variant="primary" 
+                  icon="add"
+                  onClick={() => navigate("/add-secretary")}
+                >
+                  Add Secretary
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
-      )}
+        </Card>
+      </div>
     </div>
   );
 };

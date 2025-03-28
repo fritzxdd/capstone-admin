@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../../services/firebase";
 import { ref, onValue } from "firebase/database";
 import { logEvent } from "firebase/analytics";
-import { analytics } from "../../services/firebase";
+import { db, analytics } from "../../services/firebase";
 
 // Components
 import Header from "../../components/Layout/Header";
@@ -186,7 +185,7 @@ const AdminPanel = ({ user, onLogout }) => {
         </div>
         
         <div className="stats-cards">
-          <Card className="stat-card">
+          <Card className="stat-card lawyers-icon">
             <div className="stat-icon lawyers-icon"></div>
             <div className="stat-content">
               <h3 className="stat-title">Total Lawyers</h3>

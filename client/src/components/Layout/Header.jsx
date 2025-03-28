@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import logo from '../../assets/logo.png';
 import { logEvent } from 'firebase/analytics';
 import { analytics } from '../../services/firebase';
+import logo from '../../assets/logo.png';
 
 const Header = ({ user, onLogout }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);

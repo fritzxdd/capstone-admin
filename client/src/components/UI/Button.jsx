@@ -8,18 +8,24 @@ const Button = ({
   className = '', 
   icon = null,
   disabled = false,
-  fullWidth = false
+  fullWidth = false,
+  size = 'md'
 }) => {
   const baseClass = 'btn';
   
   const variantClass = {
     primary: 'btn-primary',
-    secondary: 'btn-neutral',
+    secondary: 'btn-secondary',
     danger: 'btn-danger',
-    success: 'profile-save-btn',
-    edit: 'profile-edit-btn',
-    delete: 'profile-delete-btn'
+    success: 'btn-success',
+    neutral: 'btn-neutral'
   }[variant] || 'btn-primary';
+  
+  const sizeClass = {
+    sm: 'btn-sm',
+    md: '',
+    lg: 'btn-lg'
+  }[size] || '';
   
   const widthClass = fullWidth ? 'w-full' : '';
   
@@ -27,7 +33,7 @@ const Button = ({
     <button
       type={type}
       onClick={onClick}
-      className={`${baseClass} ${variantClass} ${widthClass} ${className}`}
+      className={`${baseClass} ${variantClass} ${sizeClass} ${widthClass} ${className}`}
       disabled={disabled}
     >
       {icon && <span className={`icon-${icon}`}></span>}
