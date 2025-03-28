@@ -1,42 +1,31 @@
 import React, { useState } from "react";
-import { auth, db } from "./script/firebase";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { ref, get } from "firebase/database";
 import { useNavigate } from "react-router-dom";
-import "./index.css"; // Make sure this CSS file exists in your project
-import logo from "./assets/logo.png";
+import { useAuth } from "../../context/AuthContext";
+import logo from "../../assets/logo.png";
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { login, error, setError } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
   
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const adminRef = ref(db, "law_firm_admin/" + user.uid);
-      const snapshot = await get(adminRef);
-  
-      if (snapshot.exists()) {
-        const adminData = snapshot.val();
-        
-        if (rememberMe) {
-          localStorage.setItem("adminData", JSON.stringify(adminData));
-        } else {
-          sessionStorage.setItem("adminData", JSON.stringify(adminData));
-        }
-  
-        onLogin(user, adminData);
-      } else {
-        alert("Access Denied: You are not an admin!");
-        await signOut(auth);
+      const success = await login(email, password, rememberMe);
+      
+      if (success) {
+        navigate("/");
       }
     } catch (error) {
-      alert("Login failed: " + error.message);
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -50,6 +39,8 @@ const Login = ({ onLogin }) => {
         <div className="login-form-container">
           <h1>Welcome back</h1>
           <p className="login-subtitle">Please enter your details</p>
+          
+          {error && <div className="error-message">{error}</div>}
           
           <form onSubmit={handleLogin} className="login-form">
             <div className="form-group">
@@ -76,13 +67,28 @@ const Login = ({ onLogin }) => {
               />
             </div>
             
-          
+            <div className="form-options">
+              <label className="remember-me">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                Remember me
+              </label>
+              
+              <button type="button" className="forgot-password" onClick={() => setError("Password reset functionality coming soon.")}>
+                Forgot password?
+              </button>
+            </div>
             
-            <button type="submit" className="signin-button">
-              Sign in
+            <button 
+              type="submit" 
+              className="signin-button"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
-            
-          
           </form>
           
           <div className="signup-prompt">
@@ -93,7 +99,7 @@ const Login = ({ onLogin }) => {
       
       <div className="login-right">
         <div className="illustration-container">
-         
+         {/* Illustration container */}
         </div>
       </div>
     </div>

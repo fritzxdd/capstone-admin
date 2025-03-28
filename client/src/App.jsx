@@ -1,82 +1,144 @@
-import React, { useState, useEffect } from "react";
-import { auth } from "./script/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
-import Login from "./Login";
-import Register from "./Register";
-import AdminPanel from "./AdminPanel";
-import Profile from "./Profile";
-import AddLawyer from "./AddLawyer";
-import ManageSecretary from "./ManageSecretary";
-import EditLawyer from "./EditLawyer";
-import Privacy from "./PrivacyPolicy";
-import PlansSubscription from "./PlansSubscription"; 
-import SuccessPage from "./Payment"; // Add this import
+import { AuthProvider, useAuth } from "./context/AuthContext";
+
+// Auth Pages
+import Login from "./pages/Auth/Login";
+import Register from "./pages/Auth/Register";
+
+// Admin Pages
+import AdminPanel from "./pages/Admin/AdminPanel";
+import Profile from "./pages/Admin/Profile";
+
+// Lawyer Pages
+import AddLawyer from "./pages/Lawyers/AddLawyer";
+import EditLawyer from "./pages/Lawyers/EditLawyer";
+
+// Secretary Pages
+import ManageSecretary from "./pages/Secretary/ManageSecretary";
+
+// Legal Pages
+import PrivacyPolicy from "./pages/Legal/PrivacyPolicy";
+
+// Payment Pages
+import PlansSubscription from "./pages/Payments/PlansSubscription";
+import PaymentSuccess from "./pages/Payments/PaymentSuccess";
+
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="loading-spinner"><div className="spinner"></div></div>;
+  }
+  
+  if (!currentUser) {
+    return <Navigate to="/login" />;
+  }
+  
+  return children;
+};
+
+const AppRoutes = () => {
+  const { currentUser, logout } = useAuth();
+  
+  return (
+    <Routes>
+      {/* Auth Routes */}
+      <Route 
+        path="/login" 
+        element={currentUser ? <Navigate to="/" /> : <Login />} 
+      />
+      <Route 
+        path="/register" 
+        element={currentUser ? <Navigate to="/" /> : <Register />} 
+      />
+      
+      {/* Protected Routes */}
+      <Route 
+        path="/" 
+        element={
+          <ProtectedRoute>
+            <AdminPanel onLogout={logout} />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/lawyers/add" 
+        element={
+          <ProtectedRoute>
+            <AddLawyer />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/lawyers/edit/:id" 
+        element={
+          <ProtectedRoute>
+            <EditLawyer />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/secretary/manage" 
+        element={
+          <ProtectedRoute>
+            <ManageSecretary />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/privacy" 
+        element={
+          <ProtectedRoute>
+            <PrivacyPolicy />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/plans" 
+        element={
+          <ProtectedRoute>
+            <PlansSubscription />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/payment-success" 
+        element={
+          <ProtectedRoute>
+            <PaymentSuccess />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Catch-all route */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+};
 
 const App = () => {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        console.log("User logged out successfully");
-      })
-      .catch((error) => {
-        console.error("Error signing out: ", error.message);
-      });
-  };
-
   return (
     <Router>
-      <Routes>
-        <Route 
-          path="/" 
-          element={user ? <AdminPanel user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/login" 
-          element={user ? <Navigate to="/" /> : <Login onLogin={setUser} />} 
-        />
-        <Route 
-          path="/EditLawyer/:id" 
-          element={user ? <EditLawyer /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/register" 
-          element={user ? <Navigate to="/" /> : <Register />} 
-        />
-        <Route 
-          path="/profile" 
-          element={user ? <Profile user={user} /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/addlawyer" 
-          element={user ? <AddLawyer /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/managesecretary" 
-          element={user ? <ManageSecretary /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/privacy" 
-          element={user ? <Privacy /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/plans-subscription" 
-          element={user ? <PlansSubscription /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/payment-success" 
-          element={user ? <SuccessPage /> : <Navigate to="/login" />} 
-        />
-      </Routes>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </Router>
   );
 };
