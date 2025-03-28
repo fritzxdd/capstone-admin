@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, set } from "firebase/database";
-import { auth, db } from "./script/firebase";
-import logo from "./assets/logo.png";
-import "./index.css"; 
+import { auth, db } from "../../services/firebase";
+import logo from "../../assets/logo.png";
+import "../../styles/index.css";
 
 const RegistrationDescription = () => {
   return (

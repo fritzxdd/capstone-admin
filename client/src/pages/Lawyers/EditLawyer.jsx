@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "./script/firebase";
+import { db } from "../../services/firebase";
 import { ref, get, update, remove } from "firebase/database";
-import "./index.css"; // Updated CSS filename
+import "../../styles/index.css"; 
 
 const LawyerDetails = () => {
   const navigate = useNavigate();

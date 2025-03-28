@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { getDatabase, ref, get, update } from 'firebase/database';
 import { useNavigate } from "react-router-dom";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth } from './script/firebase'; 
-import './index.css';
+import { auth } from '../../services/firebase'; 
+import '../../styles/index.css';
 
 const Profile = () => {
   const [formData, setFormData] = useState({
@@ -303,7 +303,6 @@ const Profile = () => {
           )}
         </div>
       </div>
-   
   );
 };
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "./script/firebase";
+import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
-import "./index.css";
+import "../../styles/index.css";
 
 const AddLawyer = () => {
   const navigate = useNavigate();

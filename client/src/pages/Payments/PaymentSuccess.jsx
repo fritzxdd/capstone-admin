@@ -1,7 +1,6 @@
-// SuccessPage.js
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import "./index.css";
+import "../../styles/index.css";
 
 // Simple check mark SVG component
 const CheckMarkIcon = () => (
@@ -13,7 +12,7 @@ const CheckMarkIcon = () => (
   </div>
 );
 
-const SuccessPage = () => {
+const PaymentSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -49,7 +48,7 @@ const SuccessPage = () => {
   }, [paymentId]);
   
   const handleReturnHome = () => {
-    navigate("/dashboard");
+    navigate("/");
   };
   
   const formatDate = (date) => {
@@ -134,4 +133,4 @@ const SuccessPage = () => {
   );
 };
 
-export default SuccessPage;
+export default PaymentSuccess;

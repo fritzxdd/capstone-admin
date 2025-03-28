@@ -1,31 +1,57 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { auth, db } from "../../services/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { ref, get } from "firebase/database";
+import "../../styles/index.css";
 import logo from "../../assets/logo.png";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   
-  const { login, error, setError } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setError("");
+    setLoading(true);
   
     try {
-      const success = await login(email, password, rememberMe);
+      console.log("Attempting login with:", email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log("User authenticated:", user);
       
-      if (success) {
+      const adminRef = ref(db, "law_firm_admin/" + user.uid);
+      const snapshot = await get(adminRef);
+      
+      console.log("Admin data check:", snapshot.exists());
+      
+      if (snapshot.exists()) {
+        const adminData = snapshot.val();
+        
+        if (rememberMe) {
+          localStorage.setItem("adminData", JSON.stringify(adminData));
+        } else {
+          sessionStorage.setItem("adminData", JSON.stringify(adminData));
+        }
+        
+        console.log("Login successful, redirecting to dashboard");
         navigate("/");
+      } else {
+        console.log("Not an admin, signing out");
+        setError("Access Denied: You are not an admin!");
+        await signOut(auth);
       }
     } catch (error) {
       console.error("Login error:", error);
+      setError(`Login failed: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -40,7 +66,11 @@ const Login = () => {
           <h1>Welcome back</h1>
           <p className="login-subtitle">Please enter your details</p>
           
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div className="error-message" style={{ color: 'red', marginBottom: '15px' }}>
+              {error}
+            </div>
+          )}
           
           <form onSubmit={handleLogin} className="login-form">
             <div className="form-group">
@@ -76,18 +106,14 @@ const Login = () => {
                 />
                 Remember me
               </label>
-              
-              <button type="button" className="forgot-password" onClick={() => setError("Password reset functionality coming soon.")}>
-                Forgot password?
-              </button>
             </div>
             
             <button 
               type="submit" 
               className="signin-button"
-              disabled={isLoading}
+              disabled={loading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
           
@@ -99,7 +125,7 @@ const Login = () => {
       
       <div className="login-right">
         <div className="illustration-container">
-         {/* Illustration container */}
+          {/* Illustration container */}
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { auth, db } from "./script/firebase";
+import { auth, db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, sendEmailVerification, updatePassword } from "firebase/auth";
 import { ref, set, get, update, remove } from "firebase/database";
-import "./index.css"; 
+import "../../styles/index.css"; 
 
 const ManageSecretary = () => {
   const navigate = useNavigate();
