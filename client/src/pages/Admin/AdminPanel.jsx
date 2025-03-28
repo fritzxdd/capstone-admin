@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { auth, db } from "../../services/firebase";
-import { ref, onValue } from "firebase/database";
 import { useNavigate } from "react-router-dom";
-import logo from "../../assets/logo.png";
-import "../../styles/index.css";
-import { analytics } from "../../services/firebase"; // Import Firebase Analytics
-import { logEvent } from "firebase/analytics"; // Import logEvent
+import { db } from "../../services/firebase";
+import { ref, onValue } from "firebase/database";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../../services/firebase";
+
+// Components
+import Header from "../../components/Layout/Header";
+import LineChart from "../../components/Charts/LineChart";
+import Card from "../../components/UI/Card";
+import Button from "../../components/UI/Button";
+import Loading from "../../components/UI/Loading";
 
 const AdminPanel = ({ user, onLogout }) => {
   const [lawyers, setLawyers] = useState([]);
   const [adminLawFirm, setAdminLawFirm] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [appointmentData, setAppointmentData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalLawyers: 0,
+    totalAppointments: 0,
+    pendingAppointments: 0,
+    completedAppointments: 0
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,6 +39,7 @@ const AdminPanel = ({ user, onLogout }) => {
 
   useEffect(() => {
     if (adminLawFirm) {
+      setIsLoading(true);
       const lawyersRef = ref(db, "lawyers");
       onValue(lawyersRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -37,11 +49,21 @@ const AdminPanel = ({ user, onLogout }) => {
               ...lawyer
             }))
             .filter((lawyer) => lawyer.lawFirm === adminLawFirm);
+          
           setLawyers(filteredLawyers);
+          setStats(prev => ({
+            ...prev,
+            totalLawyers: filteredLawyers.length
+          }));
+          
           if (analytics) {
-            logEvent(analytics, "lawyers_list_loaded", { law_firm: adminLawFirm, count: filteredLawyers.length });
+            logEvent(analytics, "lawyers_list_loaded", { 
+              law_firm: adminLawFirm, 
+              count: filteredLawyers.length 
+            });
           }
         }
+        setIsLoading(false);
       });
     }
   }, [adminLawFirm]);
@@ -53,6 +75,9 @@ const AdminPanel = ({ user, onLogout }) => {
       onValue(appointmentsRef, (snapshot) => {
         if (snapshot.exists()) {
           const allAppointments = snapshot.val();
+          let totalCount = 0;
+          let pendingCount = 0;
+          let completedCount = 0;
           
           // Process appointments for the line graph
           const appointmentsByMonth = {};
@@ -67,6 +92,14 @@ const AdminPanel = ({ user, onLogout }) => {
           
           // Structure the data for a line graph by month
           Object.entries(allAppointments).forEach(([id, appointment]) => {
+            totalCount++;
+            
+            if (appointment.status === 'pending') {
+              pendingCount++;
+            } else if (appointment.status === 'completed') {
+              completedCount++;
+            }
+            
             if (appointment.lawyerId && appointment.date) {
               const date = new Date(appointment.date);
               const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
@@ -81,6 +114,14 @@ const AdminPanel = ({ user, onLogout }) => {
               appointmentsByMonth[monthYear][appointment.lawyerId]++;
             }
           });
+          
+          // Update stats
+          setStats(prev => ({
+            ...prev,
+            totalAppointments: totalCount,
+            pendingAppointments: pendingCount,
+            completedAppointments: completedCount
+          }));
           
           // Convert to array and sort by date
           const chartData = Object.entries(appointmentsByMonth)
@@ -107,206 +148,155 @@ const AdminPanel = ({ user, onLogout }) => {
     }
   }, [lawyers]);
 
-  // Function to draw the line graph
-  const drawLineGraph = () => {
-    if (!appointmentData.chartData || appointmentData.chartData.length === 0) {
-      return <p>No appointment data available</p>;
-    }
+  const handleAddLawyer = () => {
+    navigate("/lawyers/add");
+    if (analytics) logEvent(analytics, "navigate", { destination: "Add Lawyer" });
+  };
 
-    const chartData = appointmentData.chartData;
-    const lawyerColors = appointmentData.lawyerColors;
-    
-    // Calculate graph dimensions
-    const graphHeight = 200;
-    const graphWidth = chartData.length > 1 ? chartData.length * 80 : 320;
-    
-    // Find max appointment count for scaling
-    let maxCount = 0;
-    chartData.forEach(monthData => {
-      lawyers.forEach(lawyer => {
-        if (monthData[lawyer.id] > maxCount) {
-          maxCount = monthData[lawyer.id];
-        }
-      });
-    });
-    
-    // Add padding to max count
-    maxCount = Math.ceil(maxCount * 1.2);
-    
-    // Create points for each lawyer's line
-    const lawyerLines = {};
-    lawyers.forEach(lawyer => {
-      lawyerLines[lawyer.id] = chartData.map((monthData, index) => {
-        const x = (index / (chartData.length - 1 || 1)) * graphWidth;
-        const y = graphHeight - ((monthData[lawyer.id] || 0) / maxCount) * graphHeight;
-        return { x, y };
-      });
-    });
-    
-    // Generate SVG path strings
-    const paths = {};
-    lawyers.forEach(lawyer => {
-      const points = lawyerLines[lawyer.id];
-      let pathString = '';
-      
-      if (points.length > 0) {
-        pathString = `M ${points[0].x},${points[0].y}`;
-        for (let i = 1; i < points.length; i++) {
-          pathString += ` L ${points[i].x},${points[i].y}`;
-        }
-      }
-      
-      paths[lawyer.id] = pathString;
-    });
-    
+  const handleEditLawyer = (lawyerId) => {
+    navigate(`/lawyers/edit/${lawyerId}`);
+    if (analytics) logEvent(analytics, "edit_lawyer", { lawyer_id: lawyerId });
+  };
+
+  if (isLoading) {
     return (
-      <div className="line-graph-container">
-        <div className="graph-labels">
-          <div className="y-axis-labels">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="y-label">
-                {Math.round((maxCount / 4) * (4 - i))}
-              </div>
-            ))}
-          </div>
-          
-          <svg width={graphWidth} height={graphHeight} className="line-graph">
-            {/* Horizontal grid lines */}
-            {[...Array(5)].map((_, i) => (
-              <line 
-                key={`grid-${i}`}
-                x1="0" 
-                y1={(graphHeight / 4) * i} 
-                x2={graphWidth} 
-                y2={(graphHeight / 4) * i}
-                stroke="#e0e0e0" 
-                strokeWidth="1"
-              />
-            ))}
-            
-            {/* Lines for each lawyer */}
-            {lawyers.map(lawyer => (
-              <g key={lawyer.id}>
-                <path
-                  d={paths[lawyer.id]}
-                  fill="none"
-                  stroke={lawyerColors[lawyer.id]}
-                  strokeWidth="2"
-                />
-                
-                {/* Points for each month */}
-                {lawyerLines[lawyer.id].map((point, i) => (
-                  <circle 
-                    key={`${lawyer.id}-${i}`}
-                    cx={point.x} 
-                    cy={point.y} 
-                    r="4"
-                    fill={lawyerColors[lawyer.id]}
-                    onClick={() => {
-                      navigate(`/lawyer-appointments/${lawyer.id}?month=${chartData[i].monthYear}`);
-                      if (analytics) logEvent(analytics, "view_lawyer_appointments", { 
-                        lawyer_id: lawyer.id,
-                        month: chartData[i].monthYear
-                      });
-                    }}
-                    className="data-point"
-                  />
-                ))}
-              </g>
-            ))}
-          </svg>
-        </div>
-        
-        <div className="x-axis-labels">
-          {chartData.map((monthData, i) => (
-            <div key={i} className="x-label">
-              {monthData.monthYear}
-            </div>
-          ))}
-        </div>
-        
-        <div className="graph-legend">
-          {lawyers.map(lawyer => (
-            <div key={lawyer.id} className="legend-item">
-              <div className="color-swatch" style={{ backgroundColor: lawyerColors[lawyer.id] }}></div>
-              <span style={{ color: 'black' }}>{lawyer.name}</span>
-              
-            </div>
-          ))}
+      <div className="app-container">
+        <Header user={user} onLogout={onLogout} />
+        <div className="app-content">
+          <Loading message="Loading dashboard data..." />
         </div>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="admin-panel">
-      <header className="admin-header">
-        <img src={logo} alt="Logo" className="admin-logo" />
-        <nav className="admin-nav">
-          <button className="nav-button" onClick={() => { 
-            navigate("/"); 
-            if (analytics) logEvent(analytics, "navigate", { destination: "Dashboard" });
-          }}>Dashboard</button>
-          <button className="nav-button" onClick={() => { 
-            navigate("/lawyers/add"); 
-            if (analytics) logEvent(analytics, "navigate", { destination: "Manage Lawyer" });
-          }}>Manage Lawyer</button>
-          <button className="nav-button" onClick={() => { 
-            navigate("/secretary/manage"); 
-            if (analytics) logEvent(analytics, "navigate", { destination: "Manage Secretary" });
-          }}>Manage Secretary</button>
-
-          {/* Profile Dropdown */}
-          <div className="dropdown">
-            <button className="nav-button dropdown-toggle" onClick={() => setDropdownOpen(!dropdownOpen)}>
-              Profile
-            </button>
-            {dropdownOpen && (
-              <ul className="dropdown-menu">
-                <li><button className="dropdown-item" onClick={() => navigate("/profile")}>Settings</button></li>
-                <li><button className="dropdown-item" onClick={() => navigate("/privacy")}>Privacy Policy</button></li>
-                <li><button className="dropdown-item" onClick={() => navigate("/plans")}>Plan & Subscription</button></li>
-                <li><hr className="dropdown-divider" /></li>
-                <li>
-                  <button className="dropdown-item logout" onClick={() => { 
-                    onLogout(); 
-                    if (analytics) logEvent(analytics, "logout", { admin_id: user.uid });
-                  }}>Logout</button>
-                </li>
-              </ul>
-            )}
-          </div>
-        </nav>
-      </header>
-
-      <div className="admin-content">
-        <div className="view-lawyers">
-          <h2 className="lawyers">View Lawyers</h2>
-          <ul>
-            {lawyers.map((lawyer) => (
-              <li key={lawyer.id}>
-                <button className="lawyer-button" onClick={() => { 
-                  navigate(`/lawyers/edit/${lawyer.id}`); 
-                  if (analytics) logEvent(analytics, "edit_lawyer", { lawyer_id: lawyer.id });
-                }}>
-                  {lawyer.name} - {lawyer.specialization}
-                </button>
-              </li>
-            ))}
-          </ul>
+    <div className="app-container">
+      <Header user={user} onLogout={onLogout} />
+      
+      <main className="app-content">
+        <div className="dashboard-header">
+          <h1 className="dashboard-title">Dashboard</h1>
+          <Button 
+            variant="primary" 
+            icon="add"
+            onClick={handleAddLawyer}
+          >
+            Add New Lawyer
+          </Button>
         </div>
-
-        <div className="analytics">
-          <h2>Appointments & Analytics</h2>
-          <div className="lawyer-appointments">
-            {lawyers.length > 0 ? (
-              drawLineGraph()
-            ) : (
-              <p>No lawyers found in your law firm.</p>
-            )}
-          </div>
+        
+        <div className="stats-cards">
+          <Card className="stat-card">
+            <div className="stat-icon lawyers-icon"></div>
+            <div className="stat-content">
+              <h3 className="stat-title">Total Lawyers</h3>
+              <p className="stat-value">{stats.totalLawyers}</p>
+            </div>
+          </Card>
+          
+          <Card className="stat-card">
+            <div className="stat-icon appointments-icon"></div>
+            <div className="stat-content">
+              <h3 className="stat-title">Total Appointments</h3>
+              <p className="stat-value">{stats.totalAppointments}</p>
+            </div>
+          </Card>
+          
+          <Card className="stat-card">
+            <div className="stat-icon pending-icon"></div>
+            <div className="stat-content">
+              <h3 className="stat-title">Pending</h3>
+              <p className="stat-value">{stats.pendingAppointments}</p>
+            </div>
+          </Card>
+          
+          <Card className="stat-card">
+            <div className="stat-icon completed-icon"></div>
+            <div className="stat-content">
+              <h3 className="stat-title">Completed</h3>
+              <p className="stat-value">{stats.completedAppointments}</p>
+            </div>
+          </Card>
         </div>
-      </div>
+        
+        <div className="dashboard-grid">
+          <Card 
+            title="Lawyers" 
+            className="lawyers-card"
+          >
+            <div className="lawyers-list">
+              {lawyers.length > 0 ? (
+                <ul>
+                  {lawyers.map((lawyer) => (
+                    <li key={lawyer.id} className="lawyer-item">
+                      <div className="lawyer-info">
+                        <div className="lawyer-avatar">
+                          {lawyer.profileImage ? (
+                            <img src={lawyer.profileImage} alt={lawyer.name} />
+                          ) : (
+                            <span>{lawyer.name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="lawyer-details">
+                          <h3 className="lawyer-name">{lawyer.name}</h3>
+                          <p className="lawyer-specialization">{lawyer.specialization}</p>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        variant="secondary"
+                        onClick={() => handleEditLawyer(lawyer.id)}
+                        icon="edit"
+                      >
+                        Manage
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon lawyer-empty-icon"></div>
+                  <p>No lawyers found in your law firm.</p>
+                  <Button 
+                    variant="primary" 
+                    icon="add"
+                    onClick={handleAddLawyer}
+                  >
+                    Add Your First Lawyer
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card 
+            title="Appointments & Analytics" 
+            className="analytics-card"
+          >
+            <div className="appointment-analytics">
+              {lawyers.length > 0 ? (
+                appointmentData.chartData && appointmentData.chartData.length > 0 ? (
+                  <LineChart 
+                    chartData={appointmentData.chartData} 
+                    lawyerColors={appointmentData.lawyerColors}
+                    lawyers={lawyers}
+                  />
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon analytics-empty-icon"></div>
+                    <p>No appointment data available yet.</p>
+                  </div>
+                )
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon analytics-empty-icon"></div>
+                  <p>Add lawyers to view appointment analytics.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 };
