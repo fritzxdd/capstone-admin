@@ -9,5 +9,10 @@
   },
   "dependencies": {
     "concurrently": "^8.2.2"
-  }
+  },
+  "main": "index.js",
+  "devDependencies": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

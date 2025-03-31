@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-d
 import { auth } from "./services/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
+// Subscription Protection
+import SubscriptionWrapper from "./components/Subscription/SubscriptionWrapper";
+
 // Auth Pages
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
@@ -25,9 +28,13 @@ import PrivacyPolicy from "./pages/Legal/PrivacyPolicy";
 import PlansSubscription from "./pages/Payments/PlansSubscription";
 import PaymentSuccess from "./pages/Payments/PaymentSuccess";
 
+// Components
+import Toast from "./components/UI/Toast";
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   
   // This ensures we always start from the login page
   useEffect(() => {
@@ -70,10 +77,20 @@ const App = () => {
         // Clear stored data
         localStorage.removeItem("adminData");
         sessionStorage.removeItem("adminData");
+        showToast("Logged out successfully", "success");
       })
       .catch((error) => {
         console.error("Error signing out: ", error.message);
+        showToast(`Error signing out: ${error.message}`, "error");
       });
+  };
+  
+  // Toast message handler
+  const showToast = (message, type = "info") => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => {
+      setToast({ ...toast, visible: false });
+    }, 5000);
   };
 
   if (loading) {
@@ -96,6 +113,8 @@ const App = () => {
 
   return (
     <Router>
+      {toast.visible && <Toast message={toast.message} type={toast.type} />}
+      
       <Routes>
         <Route 
           path="/login" 
@@ -106,30 +125,15 @@ const App = () => {
           element={user ? <Navigate to="/" /> : <Register />} 
         />
         
-        {/* Protected Routes */}
+        {/* Subscription Pages - Always Accessible */}
         <Route 
-          path="/" 
-          element={user ? <AdminPanel user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
+          path="/plans" 
+          element={user ? <PlansSubscription showToast={showToast} /> : <Navigate to="/login" />} 
         />
         
         <Route 
-          path="/profile" 
-          element={user ? <Profile /> : <Navigate to="/login" />} 
-        />
-        
-        <Route 
-          path="/lawyers/add" 
-          element={user ? <AddLawyer /> : <Navigate to="/login" />} 
-        />
-        
-        <Route 
-          path="/lawyers/edit/:id" 
-          element={user ? <EditLawyer /> : <Navigate to="/login" />} 
-        />
-        
-        <Route 
-          path="/secretary/manage" 
-          element={user ? <ManageSecretary /> : <Navigate to="/login" />} 
+          path="/payment-success" 
+          element={user ? <PaymentSuccess showToast={showToast} /> : <Navigate to="/login" />} 
         />
         
         <Route 
@@ -137,14 +141,51 @@ const App = () => {
           element={user ? <PrivacyPolicy /> : <Navigate to="/login" />} 
         />
         
+        {/* Dashboard - Always Accessible */}
         <Route 
-          path="/plans" 
-          element={user ? <PlansSubscription /> : <Navigate to="/login" />} 
+          path="/" 
+          element={user ? (
+            <AdminPanel user={user} onLogout={handleLogout} showToast={showToast} />
+          ) : <Navigate to="/login" />} 
         />
         
         <Route 
-          path="/payment-success" 
-          element={user ? <PaymentSuccess /> : <Navigate to="/login" />} 
+          path="/profile" 
+          element={user ? <Profile showToast={showToast} /> : <Navigate to="/login" />} 
+        />
+        
+        {/* Protected Routes - Need Active Subscription */}
+        <Route 
+          path="/lawyers/add" 
+          element={
+            user ? (
+              <SubscriptionWrapper>
+                <AddLawyer showToast={showToast} />
+              </SubscriptionWrapper>
+            ) : <Navigate to="/login" />
+          } 
+        />
+        
+        <Route 
+          path="/lawyers/edit/:id" 
+          element={
+            user ? (
+              <SubscriptionWrapper>
+                <EditLawyer showToast={showToast} />
+              </SubscriptionWrapper>
+            ) : <Navigate to="/login" />
+          } 
+        />
+        
+        <Route 
+          path="/secretary/manage" 
+          element={
+            user ? (
+              <SubscriptionWrapper>
+                <ManageSecretary showToast={showToast} />
+              </SubscriptionWrapper>
+            ) : <Navigate to="/login" />
+          } 
         />
         
         {/* Catch-all route */}

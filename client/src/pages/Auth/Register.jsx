@@ -5,6 +5,7 @@ import { ref, set } from "firebase/database";
 import { auth, db } from "../../services/firebase";
 import logo from "../../assets/logo.png";
 import "../../styles/index.css";
+import axios from "axios";
 
 const RegistrationDescription = () => {
   return (
@@ -21,10 +22,7 @@ const RegistrationDescription = () => {
           WeAssist is a comprehensive legal technology solution designed to streamline legal workflows, enhance client communication, and optimize practice management.
         </p>
         <p>
-          By leveraging advanced mobile technology and intuitive design, we provide law firms with a powerful tool that reduces administrative burdens, improves client engagement, and creates a more responsive legal service ecosystem.
-        </p>
-        <p>
-          Our mission is to empower legal professionals with innovative technology that transforms how legal services are delivered and experienced.
+          <strong>Start with a FREE 30-day trial today!</strong> No credit card required. Experience all premium features before deciding on a subscription plan.
         </p>
       </div>
     </div>
@@ -44,6 +42,8 @@ const Register = () => {
     confirmPassword: ""
   });
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -52,30 +52,76 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      setIsLoading(false);
       return;
     }
 
     try {
+      // Create Firebase user
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
+      
+      // Calculate trial end date (30 days from now)
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 30);
+      
+      // Create law firm admin record with trial info
       const lawFirmAdminRef = ref(db, "law_firm_admin/" + user.uid);
       await set(lawFirmAdminRef, {
         lawFirm: formData.lawFirm,
         phoneNumber: formData.phoneNumber,
         email: formData.email,
+        specialization: formData.specialization || "",
         operatingHours: formData.operatingHours,
         licenseNumber: formData.licenseNumber,
         officeAddress: formData.officeAddress,
-        uid: user.uid
+        uid: user.uid,
+        createdAt: Date.now(),
+        subscriptionStatus: 'active',
+        subscriptionEndDate: endDate.getTime(),
+        isTrial: true
       });
-      alert("Registration successful! Redirecting to payment...");
-      // Redirect to Payment page
-      navigate(`/plans-subscription?name=Law Firm Registration&price=₱4,800`);
+      
+      // Create trial subscription on server
+      try {
+        // Send info to backend
+        const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/subscriptions`, {
+          userId: user.uid,
+          planId: 'plan_trial',
+          startDate: startDate.getTime()
+        });
+        
+        // Update admin record with subscription ID if successful
+        if (response.data && response.data.id) {
+          const subscriptionId = response.data.id;
+          const updateRef = ref(db, `law_firm_admin/${user.uid}`);
+          await set(updateRef, {
+            currentSubscription: subscriptionId
+          }, { merge: true });
+        }
+      } catch (subError) {
+        console.error("Error creating trial subscription:", subError);
+        // Continue registration process even if subscription creation fails
+      }
+      
+      setSuccessMessage("Registration successful! Your 30-day free trial has started.");
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        navigate("/");
+      }, 2000);
     } catch (error) {
+      console.error("Registration error:", error);
       setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,6 +137,10 @@ const Register = () => {
               <img src={logo} alt="WeAssist Logo" />
             </div>
           </div>
+          <div className="free-trial-badge">
+            <span>FREE 30-DAY TRIAL</span>
+            <small>No credit card required</small>
+          </div>
         </div>
 
         <div className="register-form-side">
@@ -100,6 +150,7 @@ const Register = () => {
           </div>
 
           {error && <p className="error-message">{error}</p>}
+          {successMessage && <p className="success-message">{successMessage}</p>}
 
           <form onSubmit={handleRegister} autoComplete="off">
             <div className="form-group">
@@ -201,7 +252,17 @@ const Register = () => {
               />
             </div>
 
-            <button type="submit" className="create-account-btn">CREATE ACCOUNT</button>
+            <button 
+              type="submit" 
+              className="create-account-btn"
+              disabled={isLoading}
+            >
+              {isLoading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT & START FREE TRIAL"}
+            </button>
+            
+            <p className="terms-note">
+              By signing up, you agree to our <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.
+            </p>
             
             <p className="login-link">
               Already have an account? <a href="/login">Login</a>
