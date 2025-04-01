@@ -3156,3 +3156,242 @@ a:hover {
   justify-content: space-between;
   align-items: center;
 }
+/* Secretary Form Specific Styles */
+.secretary-card {
+  max-width: 800px;
+  margin: 2rem auto;
+  background-color: var(--background-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.secretary-header {
+  position: relative;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--background-white);
+}
+
+.secretary-title {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.header-underline {
+  height: 3px;
+  width: 60px;
+  background-color: var(--primary-color);
+  margin: 0 auto;
+}
+
+.back-button {
+  position: absolute;
+  top: 50%;
+  left: var(--spacing-md);
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-medium);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.back-button:hover {
+  background-color: var(--background-light);
+  color: var(--primary-color);
+}
+
+.icon-back::before {
+  content: "←";
+  font-size: 1.25rem;
+}
+
+.secretary-form-container {
+  padding: var(--spacing-xl);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-dark);
+  font-size: var(--font-size-sm);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-md);
+  transition: all var(--transition-fast);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.1);
+}
+
+.form-note {
+  color: var(--text-medium);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.required {
+  color: var(--error-color);
+  font-weight: bold;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background-color: var(--background-light);
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--border-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.success-message {
+  background-color: rgba(32, 191, 107, 0.1);
+  border-left: 4px solid var(--accent-color);
+  color: var(--accent-color);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.success-icon {
+  font-weight: bold;
+}
+
+.error-message {
+  background-color: rgba(235, 59, 90, 0.1);
+  border-left: 4px solid var(--error-color);
+  color: var(--error-color);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.error-message::before {
+  content: "⚠️";
+}
+
+/* Responsive styling */
+@media (max-width: 768px) {
+  .secretary-form-container {
+    padding: var(--spacing-md);
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .secretary-header {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .secretary-card {
+    margin: 1rem;
+  }
+}
+/* Additional styles for the re-authentication form */
+.reauth-form {
+  padding: var(--spacing-md);
+  background-color: var(--background-light);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.reauth-message {
+  margin: var(--spacing-md) 0;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.disabled-input {
+  background-color: var(--background-light);
+  color: var(--text-medium);
+  cursor: not-allowed;
+}
+
+.success-icon {
+  color: var(--accent-color);
+  font-weight: bold;
+}
+
+.required {
+  color: var(--error-color);
+  font-weight: bold;
+}
+
+.help-text {
+  display: block;
+  color: var(--text-medium);
+  font-size: var(--font-size-xs);
+  margin-top: 4px;
+}
