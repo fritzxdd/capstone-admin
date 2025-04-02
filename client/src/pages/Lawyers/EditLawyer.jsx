@@ -12,20 +12,53 @@ const LawyerDetails = () => {
   const [newService, setNewService] = useState("");
   const [image, setImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [secretaries, setSecretaries] = useState([]);
+  const [selectedSecretaryId, setSelectedSecretaryId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const lawyerRef = ref(db, `lawyers/${id}`);
-    get(lawyerRef)
-      .then((snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          setLawyer(data);
-          setServices(data.services || []);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch lawyer data
+        const lawyerRef = ref(db, `lawyers/${id}`);
+        const lawyerSnapshot = await get(lawyerRef);
+        
+        if (lawyerSnapshot.exists()) {
+          const lawyerData = lawyerSnapshot.val();
+          setLawyer(lawyerData);
+          setServices(lawyerData.services || []);
+          setSelectedSecretaryId(lawyerData.secretaryId || "");
         } else {
           console.error("Lawyer not found.");
         }
-      })
-      .catch((error) => console.error("Error fetching lawyer data:", error));
+
+        // Fetch secretaries data
+        const secretariesRef = ref(db, 'secretaries');
+        const secretariesSnapshot = await get(secretariesRef);
+        
+        if (secretariesSnapshot.exists()) {
+          const secretariesData = secretariesSnapshot.val();
+          const secretariesArray = Object.entries(secretariesData).map(([id, data]) => ({
+            id,
+            ...data
+          }));
+          
+          // Filter secretaries by the lawyer's law firm if needed
+          const filteredSecretaries = lawyerSnapshot.exists() 
+            ? secretariesArray.filter(secretary => secretary.lawFirm === lawyerSnapshot.val().lawFirm)
+            : [];
+            
+          setSecretaries(filteredSecretaries);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [id]);
 
   const handleProfileImageChange = (e) => {
@@ -44,12 +77,20 @@ const LawyerDetails = () => {
 
   const handleCancel = () => {
     setIsEditing(false);
+    // Reset the selected secretary to the original value
+    setSelectedSecretaryId(lawyer.secretaryId || "");
   };
 
   const handleSave = () => {
-    update(ref(db, `lawyers/${id}`), lawyer)
+    const updatedLawyer = {
+      ...lawyer,
+      secretaryId: selectedSecretaryId
+    };
+    
+    update(ref(db, `lawyers/${id}`), updatedLawyer)
       .then(() => {
         alert("Lawyer updated successfully.");
+        setLawyer(updatedLawyer);
         setIsEditing(false);
       })
       .catch((error) => console.error("Error updating lawyer:", error));
@@ -57,6 +98,10 @@ const LawyerDetails = () => {
 
   const handleChange = (e) => {
     setLawyer({ ...lawyer, [e.target.name]: e.target.value });
+  };
+
+  const handleSecretaryChange = (e) => {
+    setSelectedSecretaryId(e.target.value);
   };
 
   const handleAddService = () => {
@@ -78,7 +123,12 @@ const LawyerDetails = () => {
     }
   };
 
-  if (!lawyer) return <p>Loading...</p>;
+  if (loading) return <div className="loading-spinner"><div className="spinner"></div><p>Loading...</p></div>;
+  
+  if (!lawyer) return <p>Lawyer not found</p>;
+
+  // Find the assigned secretary's details if one is selected
+  const assignedSecretary = secretaries.find(secretary => secretary.id === lawyer.secretaryId);
 
   return (
     <div className="lawyer-container">
@@ -166,6 +216,21 @@ const LawyerDetails = () => {
                     onChange={handleChange} 
                   />
                 </div>
+                <div className="form-row">
+                  <label>Assigned Secretary:</label>
+                  <select 
+                    value={selectedSecretaryId} 
+                    onChange={handleSecretaryChange}
+                    className="secretary-select"
+                  >
+                    <option value="">None</option>
+                    {secretaries.map(secretary => (
+                      <option key={secretary.id} value={secretary.id}>
+                        {secretary.name} ({secretary.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : (
               <>
@@ -175,6 +240,9 @@ const LawyerDetails = () => {
                 <p><strong>Specialization:</strong> {lawyer.specialization}</p>
                 <p><strong>License Number:</strong> {lawyer.licenseNumber}</p>
                 <p><strong>Experience:</strong> {lawyer.experience} years</p>
+                <p><strong>Assigned Secretary:</strong> {assignedSecretary 
+                  ? `${assignedSecretary.name} (${assignedSecretary.email})` 
+                  : "None"}</p>
               </>
             )}
           </div>
