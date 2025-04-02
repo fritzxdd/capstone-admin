@@ -81,11 +81,11 @@ const AddLawyer = () => {
       const secretariesRef = ref(db, "secretaries");
       const secretariesSnap = await get(secretariesRef);
   
-      let secretaryID = null;
+      let secretaryId = null;
       if (secretariesSnap.exists()) {
-        Object.entries(secretariesSnap.val()).forEach(([secID, secData]) => {
+        Object.entries(secretariesSnap.val()).forEach(([secId, secData]) => {
           if (secData.lawFirm === lawFirmAdmin.lawFirm) {
-            secretaryID = secID;
+            secretaryId = secId;
           }
         });
       }
@@ -101,7 +101,7 @@ const AddLawyer = () => {
         profileImage: preview || "",
         lawFirm: lawFirmAdmin.lawFirm,
         adminUID: lawFirmAdmin.uid,
-        secretaryID: secretaryID || "",
+        secretaryId: secretaryId || "",
       });
   
       await sendEmailVerification(userCredential.user);
