@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../../services/firebase";
-import { ref, get, update, remove } from "firebase/database";
+import { ref, get } from "firebase/database";
+import Button from "../../components/UI/Button";
+import Card from "../../components/UI/Card";
+import Loading from "../../components/UI/Loading";
+import apiService from "../../services/api";
+import { trackEvent } from "../../services/analytics";
 import "../../styles/index.css"; 
 
 const LawyerDetails = () => {
@@ -12,133 +17,195 @@ const LawyerDetails = () => {
   const [newService, setNewService] = useState("");
   const [image, setImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [secretaries, setSecretaries] = useState([]);
-  const [selectedSecretaryId, setSelectedSecretaryId] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchLawyerData = async () => {
+      setIsLoading(true);
       try {
-        // Fetch lawyer data
+        // Using Firebase directly for now, but could be replaced with API call
         const lawyerRef = ref(db, `lawyers/${id}`);
-        const lawyerSnapshot = await get(lawyerRef);
+        const snapshot = await get(lawyerRef);
         
-        if (lawyerSnapshot.exists()) {
-          const lawyerData = lawyerSnapshot.val();
-          setLawyer(lawyerData);
-          setServices(lawyerData.services || []);
-          setSelectedSecretaryId(lawyerData.secretaryId || "");
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setLawyer(data);
+          setServices(data.services || []);
         } else {
-          console.error("Lawyer not found.");
-        }
-
-        // Fetch secretaries data
-        const secretariesRef = ref(db, 'secretaries');
-        const secretariesSnapshot = await get(secretariesRef);
-        
-        if (secretariesSnapshot.exists()) {
-          const secretariesData = secretariesSnapshot.val();
-          const secretariesArray = Object.entries(secretariesData).map(([id, data]) => ({
-            id,
-            ...data
-          }));
-          
-          // Filter secretaries by the lawyer's law firm if needed
-          const filteredSecretaries = lawyerSnapshot.exists() 
-            ? secretariesArray.filter(secretary => secretary.lawFirm === lawyerSnapshot.val().lawFirm)
-            : [];
-            
-          setSecretaries(filteredSecretaries);
+          setError("Lawyer not found.");
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching lawyer data:", error);
+        setError("Failed to load lawyer details. Please try again.");
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchLawyerData();
   }, [id]);
 
   const handleProfileImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setImage(file);
+      
+      // Create a URL for preview
       const imageUrl = URL.createObjectURL(file);
-      setImage(imageUrl);
+      
+      // Update local state for immediate UI update
       setLawyer((prevLawyer) => ({ ...prevLawyer, profileImage: imageUrl }));
-      update(ref(db, `lawyers/${id}`), { profileImage: imageUrl });
     }
   };
 
   const handleEditToggle = () => {
     setIsEditing(true);
+    setError("");
+    setSuccess("");
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset the selected secretary to the original value
-    setSelectedSecretaryId(lawyer.secretaryId || "");
-  };
-
-  const handleSave = () => {
-    const updatedLawyer = {
-      ...lawyer,
-      secretaryId: selectedSecretaryId
-    };
+    setError("");
+    setSuccess("");
     
-    update(ref(db, `lawyers/${id}`), updatedLawyer)
-      .then(() => {
-        alert("Lawyer updated successfully.");
-        setLawyer(updatedLawyer);
-        setIsEditing(false);
-      })
-      .catch((error) => console.error("Error updating lawyer:", error));
+    // Refresh data to discard changes
+    fetchLawyerData();
   };
 
   const handleChange = (e) => {
     setLawyer({ ...lawyer, [e.target.name]: e.target.value });
   };
 
-  const handleSecretaryChange = (e) => {
-    setSelectedSecretaryId(e.target.value);
-  };
-
-  const handleAddService = () => {
-    if (newService.trim()) {
-      const updatedServices = [...services, newService];
-
-      // Update state
-      setServices(updatedServices);
-      setNewService("");
-
-      // Update Firebase database
-      update(ref(db, `lawyers/${id}`), { services: updatedServices })
-        .then(() => {
-          console.log("Service added and saved to database successfully.");
-        })
-        .catch((error) => {
-          console.error("Error updating services in database:", error);
-        });
+  const handleSave = async () => {
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+    
+    try {
+      // Using our API service to update the lawyer
+      await apiService.updateLawyer(id, lawyer);
+      
+      setSuccess("Lawyer updated successfully.");
+      setIsEditing(false);
+      
+      // Track success
+      trackEvent("update_lawyer_success", { lawyer_id: id });
+    } catch (error) {
+      console.error("Error updating lawyer:", error);
+      setError(error.response?.data?.error || "Failed to update lawyer. Please try again.");
+      
+      // Track error
+      trackEvent("update_lawyer_error", { 
+        error: error.response?.data?.error || error.message 
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (loading) return <div className="loading-spinner"><div className="spinner"></div><p>Loading...</p></div>;
-  
-  if (!lawyer) return <p>Lawyer not found</p>;
+  const handleAddService = async () => {
+    if (newService.trim()) {
+      // Create updated services array
+      const updatedServices = [...services, newService];
 
-  // Find the assigned secretary's details if one is selected
-  const assignedSecretary = secretaries.find(secretary => secretary.id === lawyer.secretaryId);
+      // Update local state
+      setServices(updatedServices);
+      setNewService("");
+
+      try {
+        // Update Firebase directly for now, but could be API call
+        const updateData = { services: updatedServices };
+        await apiService.updateLawyer(id, updateData);
+        
+        // Track success
+        trackEvent("add_lawyer_service_success", { 
+          lawyer_id: id,
+          service: newService
+        });
+      } catch (error) {
+        console.error("Error updating services:", error);
+        setError("Failed to add service. Please try again.");
+        
+        // Revert the local state change
+        setServices(services);
+        
+        // Track error
+        trackEvent("add_lawyer_service_error", { 
+          error: error.response?.data?.error || error.message 
+        });
+      }
+    }
+  };
+
+  const handleDeleteLawyer = async () => {
+    if (window.confirm("Are you sure you want to delete this lawyer?")) {
+      setIsLoading(true);
+      setError("");
+      
+      try {
+        // Use API to delete the lawyer
+        await apiService.deleteLawyer(id);
+        
+        setSuccess("Lawyer deleted successfully.");
+        
+        // Track success
+        trackEvent("delete_lawyer_success", { lawyer_id: id });
+        
+        // Navigate back after a short delay
+        setTimeout(() => navigate("/"), 1500);
+      } catch (error) {
+        console.error("Error deleting lawyer:", error);
+        setError(error.response?.data?.error || "Failed to delete lawyer. Please try again.");
+        setIsLoading(false);
+        
+        // Track error
+        trackEvent("delete_lawyer_error", { 
+          error: error.response?.data?.error || error.message 
+        });
+      }
+    }
+  };
+
+  // Helper function to fetch data again
+  const fetchLawyerData = async () => {
+    setIsLoading(true);
+    try {
+      const lawyerRef = ref(db, `lawyers/${id}`);
+      const snapshot = await get(lawyerRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setLawyer(data);
+        setServices(data.services || []);
+      } else {
+        setError("Lawyer not found.");
+      }
+    } catch (error) {
+      console.error("Error fetching lawyer data:", error);
+      setError("Failed to load lawyer details. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) return <Loading message="Loading lawyer data..." />;
+  if (!lawyer) return <div className="error-message">{error || "Lawyer not found"}</div>;
 
   return (
     <div className="lawyer-container">
       <h2 className="lawyer-title">Lawyer Details</h2>
       
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+      
       <div className="lawyer-content">
         <div className="lawyer-left">
           <div className="profile-image-container">
             <img 
-              src={image || lawyer.profileImage || "https://via.placeholder.com/150?text=Profile"} 
+              src={image ? URL.createObjectURL(image) : lawyer.profileImage || "https://via.placeholder.com/150?text=Profile"} 
               alt={lawyer.name} 
               className="profile-image" 
             />
@@ -216,21 +283,6 @@ const LawyerDetails = () => {
                     onChange={handleChange} 
                   />
                 </div>
-                <div className="form-row">
-                  <label>Assigned Secretary:</label>
-                  <select 
-                    value={selectedSecretaryId} 
-                    onChange={handleSecretaryChange}
-                    className="secretary-select"
-                  >
-                    <option value="">None</option>
-                    {secretaries.map(secretary => (
-                      <option key={secretary.id} value={secretary.id}>
-                        {secretary.name} ({secretary.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
             ) : (
               <>
@@ -240,9 +292,6 @@ const LawyerDetails = () => {
                 <p><strong>Specialization:</strong> {lawyer.specialization}</p>
                 <p><strong>License Number:</strong> {lawyer.licenseNumber}</p>
                 <p><strong>Experience:</strong> {lawyer.experience} years</p>
-                <p><strong>Assigned Secretary:</strong> {assignedSecretary 
-                  ? `${assignedSecretary.name} (${assignedSecretary.email})` 
-                  : "None"}</p>
               </>
             )}
           </div>
@@ -288,11 +337,7 @@ const LawyerDetails = () => {
                 <button className="action-btn update" onClick={handleEditToggle}>Update</button>
                 <button 
                   className="action-btn delete" 
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this lawyer?")) {
-                      remove(ref(db, `lawyers/${id}`)).then(() => navigate("/"));
-                    }
-                  }}
+                  onClick={handleDeleteLawyer}
                 >
                   Delete
                 </button>

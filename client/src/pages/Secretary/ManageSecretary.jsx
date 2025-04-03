@@ -1,73 +1,88 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../services/firebase";
-import { ref, get, update, remove } from "firebase/database";
-import { updatePassword } from "firebase/auth";
+import { auth } from "../../services/firebase";
+import { ref, get } from "firebase/database";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
+import apiService from "../../services/api";
+import { trackEvent } from "../../services/analytics";
+import "../../styles/index.css";
 
 const ManageSecretary = () => {
   const navigate = useNavigate();
   const [secretary, setSecretary] = useState({
     name: "",
     email: "",
-    phone: "",
-    password: ""
+    phone: ""
   });
   const [initialData, setInitialData] = useState(null);
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [existingSecretary, setExistingSecretary] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
 
   useEffect(() => {
     const fetchAdminData = async () => {
       setIsLoading(true);
       const user = auth.currentUser;
       if (user) {
-        const adminRef = ref(db, `law_firm_admin/${user.uid}`);
-        const snapshot = await get(adminRef);
-        if (snapshot.exists()) {
-          const adminData = snapshot.val();
-          setLawFirmAdmin(adminData);
-          await fetchSecretary(adminData.lawFirm);
-        } else {
-          setError("Error: Law firm admin not found!");
-          navigate("/");
+        try {
+          // Get admin data from localStorage/sessionStorage first
+          const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
+          if (storedAdmin) {
+            const adminData = JSON.parse(storedAdmin);
+            setLawFirmAdmin(adminData);
+            await fetchSecretary(adminData.lawFirm);
+          } else {
+            // Fallback to database query
+            const adminRef = ref(db, `law_firm_admin/${user.uid}`);
+            const snapshot = await get(adminRef);
+            if (snapshot.exists()) {
+              const adminData = snapshot.val();
+              setLawFirmAdmin(adminData);
+              await fetchSecretary(adminData.lawFirm);
+            } else {
+              setError("Error: Law firm admin not found!");
+              navigate("/");
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          setError("Error loading data. Please try again later.");
         }
       }
       setIsLoading(false);
     };
 
     const fetchSecretary = async (lawFirm) => {
-      const secRef = ref(db, `secretaries`);
-      const snapshot = await get(secRef);
-      if (snapshot.exists()) {
-        const secretaries = snapshot.val();
-        for (const uid in secretaries) {
-          if (secretaries[uid].lawFirm === lawFirm) {
-            const secretaryData = {
-              uid,
-              ...secretaries[uid]
-            };
-            setExistingSecretary(secretaryData);
-            setSecretary({
-              name: secretaries[uid].name || "",
-              email: secretaries[uid].email || "",
-              phone: secretaries[uid].phone || "",
-              password: ""
-            });
-            setInitialData({
-              name: secretaries[uid].name || "",
-              email: secretaries[uid].email || "",
-              phone: secretaries[uid].phone || ""
-            });
-            break;
-          }
+      try {
+        // Use the new API endpoint
+        const secretary = await apiService.getSecretaryByLawFirm(lawFirm);
+        
+        if (secretary) {
+          setExistingSecretary(secretary);
+          setSecretary({
+            name: secretary.name || "",
+            email: secretary.email || "",
+            phone: secretary.phone || ""
+          });
+          setInitialData({
+            name: secretary.name || "",
+            email: secretary.email || "",
+            phone: secretary.phone || ""
+          });
+        }
+      } catch (error) {
+        // 404 error means no secretary found, which is not really an error
+        if (error.response?.status !== 404) {
+          console.error("Error fetching secretary:", error);
+          setError("Failed to load secretary data. Please try again.");
         }
       }
     };
@@ -85,21 +100,96 @@ const ManageSecretary = () => {
 
   const enableEditing = () => {
     setIsEditing(true);
+    setIsCreating(false);
     setError("");
     setSuccess("");
   };
 
+  const enableCreating = () => {
+    setIsCreating(true);
+    setIsEditing(false);
+    setError("");
+    setSuccess("");
+    
+    // Reset form for new secretary
+    setSecretary({
+      name: "",
+      email: "",
+      phone: ""
+    });
+  };
+
   const cancelEditing = () => {
     setIsEditing(false);
+    setIsCreating(false);
     // Reset to original data
     if (initialData) {
       setSecretary({
-        ...initialData,
-        password: ""
+        ...initialData
       });
     }
     setError("");
     setSuccess("");
+  };
+
+  const createSecretary = async () => {
+    if (!lawFirmAdmin) {
+      setError("Law firm admin data not loaded");
+      return;
+    }
+
+    if (!secretary.name || !secretary.email) {
+      setError("Name and email are required");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      // Prepare secretary data
+      const secretaryData = {
+        name: secretary.name,
+        email: secretary.email,
+        phone: secretary.phone || '',
+        lawFirm: lawFirmAdmin.lawFirm,
+        adminUID: lawFirmAdmin.uid
+      };
+
+      // Call API to create secretary
+      const response = await apiService.createSecretary(secretaryData);
+      
+      if (response && response.uid) {
+        // Save the temp password to display
+        if (response.tempPassword) {
+          setTempPassword(response.tempPassword);
+        }
+        
+        setSuccess("Secretary account created successfully!");
+        
+        // Track event for analytics
+        trackEvent("create_secretary_success", { 
+          law_firm: lawFirmAdmin.lawFirm 
+        });
+        
+        // Refresh data after a delay
+        setTimeout(() => {
+          setIsCreating(false);
+          fetchSecretary(lawFirmAdmin.lawFirm);
+        }, 1000);
+      }
+    } catch (error) {
+      console.error("Error creating secretary:", error);
+      setError(error.response?.data?.error || "Failed to create secretary account. Please try again.");
+      
+      // Track error
+      trackEvent("create_secretary_error", { 
+        error: error.response?.data?.error || error.message 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const saveSecretaryChanges = async () => {
@@ -118,29 +208,9 @@ const ManageSecretary = () => {
     setSuccess("");
 
     try {
-      // Update database record
-      const updates = {
-        name: secretary.name,
-        phone: secretary.phone,
-        email: secretary.email
-      };
-
-      await update(ref(db, `secretaries/${existingSecretary.uid}`), updates);
+      // Update secretary via API
+      const response = await apiService.updateSecretary(existingSecretary.id, secretary);
       
-      // Update password if provided
-      if (secretary.password) {
-        try {
-          // This would need to be done through a secure method, typically via a Cloud Function
-          // For this example, we're assuming there's a way to update password securely
-          console.log("Password would be updated here");
-        } catch (passwordError) {
-          console.error("Error updating password:", passwordError);
-          setError("Updated secretary info, but failed to update password");
-          setIsLoading(false);
-          return;
-        }
-      }
-
       // Update initial data
       setInitialData({
         name: secretary.name,
@@ -150,9 +220,19 @@ const ManageSecretary = () => {
 
       setSuccess("Secretary information updated successfully");
       setIsEditing(false);
+      
+      // Track success
+      trackEvent("update_secretary_success", { 
+        secretary_id: existingSecretary.id 
+      });
     } catch (error) {
       console.error("Error updating secretary:", error);
-      setError(`Failed to update secretary: ${error.message}`);
+      setError(error.response?.data?.error || "Failed to update secretary. Please try again.");
+      
+      // Track error
+      trackEvent("update_secretary_error", { 
+        error: error.response?.data?.error || error.message 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -179,19 +259,31 @@ const ManageSecretary = () => {
     setSuccess("");
 
     try {
-      await remove(ref(db, `secretaries/${existingSecretary.uid}`));
+      // Delete secretary via API
+      await apiService.deleteSecretary(existingSecretary.id);
+      
       setSuccess("Secretary deleted successfully");
       setExistingSecretary(null);
-      setSecretary({ name: "", email: "", phone: "", password: "" });
+      setSecretary({ name: "", email: "", phone: "" });
       setInitialData(null);
       setConfirmDelete(false);
       
-      // Redirect to dashboard after a short delay
+      // Track success
+      trackEvent("delete_secretary_success", { 
+        secretary_id: existingSecretary.id 
+      });
+      
+      // Redirect after a short delay
       setTimeout(() => navigate("/"), 2000);
     } catch (error) {
       console.error("Error deleting secretary:", error);
-      setError(`Failed to delete secretary: ${error.message}`);
+      setError(error.response?.data?.error || "Failed to delete secretary. Please try again.");
       setConfirmDelete(false);
+      
+      // Track error
+      trackEvent("delete_secretary_error", { 
+        error: error.response?.data?.error || error.message 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -211,7 +303,7 @@ const ManageSecretary = () => {
 
           {isLoading ? (
             <Loading message="Processing..." />
-          ) : existingSecretary && !isEditing ? (
+          ) : existingSecretary && !isEditing && !isCreating ? (
             <div className="secretary-details">
               {error && <div className="error-message">{error}</div>}
               {success && <div className="success-message">{success}</div>}
@@ -281,10 +373,20 @@ const ManageSecretary = () => {
                 </div>
               )}
             </div>
-          ) : existingSecretary && isEditing ? (
+          ) : (isEditing || isCreating) ? (
             <div className="secretary-edit-form">
               {error && <div className="error-message">{error}</div>}
-              {success && <div className="success-message">{success}</div>}
+              {success && (
+                <div className="success-message">
+                  {success}
+                  {tempPassword && (
+                    <div className="temp-password-info">
+                      <p>Temporary password: <strong>{tempPassword}</strong></p>
+                      <p>Please share this with the secretary. They will be asked to change it on first login.</p>
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="form-grid">
                 <div className="form-group">
@@ -324,30 +426,31 @@ const ManageSecretary = () => {
                     placeholder="Phone number"
                   />
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="password">New Password (leave blank to keep unchanged)</label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={secretary.password}
-                    onChange={handleChange}
-                    placeholder="New password"
-                  />
-                </div>
               </div>
               
               <p className="form-note">* Required fields</p>
+              {isCreating && (
+                <p className="form-note">A temporary password will be generated and shown after creation.</p>
+              )}
               
               <div className="form-actions">
-                <Button 
-                  variant="success" 
-                  icon="save"
-                  onClick={saveSecretaryChanges}
-                >
-                  Save Changes
-                </Button>
+                {isEditing ? (
+                  <Button 
+                    variant="success" 
+                    icon="save"
+                    onClick={saveSecretaryChanges}
+                  >
+                    Save Changes
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="success" 
+                    icon="add"
+                    onClick={createSecretary}
+                  >
+                    Create Secretary
+                  </Button>
+                )}
                 
                 <Button 
                   variant="secondary" 
@@ -366,7 +469,7 @@ const ManageSecretary = () => {
                 <Button 
                   variant="primary" 
                   icon="add"
-                  onClick={() => navigate("/add-secretary")}
+                  onClick={enableCreating}
                 >
                   Add Secretary
                 </Button>

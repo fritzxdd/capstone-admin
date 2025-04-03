@@ -1,6 +1,46 @@
-import { ref, get, set, update, remove, push, query, orderByChild, equalTo } from 'firebase/database';
-import { db } from './firebase';
+// client/src/services/api.js
+import axios from 'axios';
+import { auth } from './firebase';
 import analyticsService from './analytics';
+
+// Create an axios instance with base URL
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add token to requests
+api.interceptors.request.use(async (config) => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  } catch (error) {
+    console.error('Error adding token to request:', error);
+    return config;
+  }
+});
+
+// Handle errors globally
+api.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    console.error('API error:', error);
+    analyticsService.trackApiError(
+      error.config?.url || 'unknown',
+      error.response?.data?.error || error.message,
+      error.response?.status
+    );
+    return Promise.reject(error);
+  }
+);
+
+// Original functions from Firebase
 
 /**
  * Get data from Firebase database
@@ -113,43 +153,147 @@ export const queryByField = async (path, field, value) => {
   }
 };
 
-// Specialized functions for common operations
+// New API endpoints using the backend service
 
 /**
- * Get a lawyer by ID
- * @param {string} id - Lawyer ID
- * @returns {Promise<Object>} Lawyer data
+ * Create a lawyer through the backend API
+ * @param {Object} lawyerData - Lawyer data including name, email, etc.
+ * @returns {Promise<Object>} Created lawyer data
  */
-export const getLawyer = async (id) => {
-  return getData(`lawyers/${id}`);
+const createLawyer = async (lawyerData) => {
+  try {
+    const response = await api.post('/users/lawyers', lawyerData);
+    analyticsService.trackApiSuccess('createLawyer', 'create');
+    return response;
+  } catch (error) {
+    throw error;
+  }
 };
 
 /**
- * Get all lawyers for a law firm
- * @param {string} lawFirmId - Law firm ID/name
+ * Update a lawyer through the backend API
+ * @param {string} id - Lawyer ID
+ * @param {Object} lawyerData - Updated lawyer data
+ * @returns {Promise<Object>} Response data
+ */
+const updateLawyer = async (id, lawyerData) => {
+  try {
+    const response = await api.put(`/users/lawyers/${id}`, lawyerData);
+    analyticsService.trackApiSuccess(`updateLawyer/${id}`, 'update');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Delete a lawyer through the backend API
+ * @param {string} id - Lawyer ID
+ * @returns {Promise<Object>} Response data
+ */
+const deleteLawyer = async (id) => {
+  try {
+    const response = await api.delete(`/users/lawyers/${id}`);
+    analyticsService.trackApiSuccess(`deleteLawyer/${id}`, 'delete');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get all lawyers for a law firm through the backend API
+ * @param {string} lawFirm - Law firm name/ID
  * @returns {Promise<Array>} Array of lawyers
  */
-export const getLawyersByLawFirm = async (lawFirmId) => {
-  return queryByField('lawyers', 'lawFirm', lawFirmId);
+const getLawyersByLawFirm = async (lawFirm) => {
+  try {
+    const response = await api.get(`/users/lawyers/law-firm/${encodeURIComponent(lawFirm)}`);
+    analyticsService.trackApiSuccess(`getLawyersByLawFirm/${lawFirm}`, 'read');
+    return response;
+  } catch (error) {
+    throw error;
+  }
 };
 
 /**
- * Update a lawyer
- * @param {string} id - Lawyer ID
- * @param {Object} data - Updated lawyer data
- * @returns {Promise<void>}
+ * Create a secretary through the backend API
+ * @param {Object} secretaryData - Secretary data
+ * @returns {Promise<Object>} Created secretary data
  */
-export const updateLawyer = async (id, data) => {
-  return updateData(`lawyers/${id}`, data);
+const createSecretary = async (secretaryData) => {
+  try {
+    const response = await api.post('/users/secretaries', secretaryData);
+    analyticsService.trackApiSuccess('createSecretary', 'create');
+    return response;
+  } catch (error) {
+    throw error;
+  }
 };
 
-export default {
+/**
+ * Update a secretary through the backend API
+ * @param {string} id - Secretary ID
+ * @param {Object} secretaryData - Updated secretary data
+ * @returns {Promise<Object>} Response data
+ */
+const updateSecretary = async (id, secretaryData) => {
+  try {
+    const response = await api.put(`/users/secretaries/${id}`, secretaryData);
+    analyticsService.trackApiSuccess(`updateSecretary/${id}`, 'update');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Delete a secretary through the backend API
+ * @param {string} id - Secretary ID
+ * @returns {Promise<Object>} Response data
+ */
+const deleteSecretary = async (id) => {
+  try {
+    const response = await api.delete(`/users/secretaries/${id}`);
+    analyticsService.trackApiSuccess(`deleteSecretary/${id}`, 'delete');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get the secretary for a law firm through the backend API
+ * @param {string} lawFirm - Law firm name/ID
+ * @returns {Promise<Object>} Secretary data
+ */
+const getSecretaryByLawFirm = async (lawFirm) => {
+  try {
+    const response = await api.get(`/users/secretaries/law-firm/${encodeURIComponent(lawFirm)}`);
+    analyticsService.trackApiSuccess(`getSecretaryByLawFirm/${lawFirm}`, 'read');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const apiService = {
+  // Original Firebase functions
   getData,
   createData,
   updateData,
   deleteData,
   queryByField,
-  getLawyer,
+  
+  // New API endpoints
+  createLawyer,
+  updateLawyer,
+  deleteLawyer,
   getLawyersByLawFirm,
-  updateLawyer
+  createSecretary,
+  updateSecretary,
+  deleteSecretary,
+  getSecretaryByLawFirm,
 };
+
+export default apiService;

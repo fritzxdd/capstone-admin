@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { ref, set, get } from "firebase/database";
+import { ref, get } from "firebase/database";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
+import apiService from "../../services/api";
+import { trackEvent } from "../../services/analytics";
 import "../../styles/index.css";
 
 const AddLawyer = () => {
@@ -17,25 +18,38 @@ const AddLawyer = () => {
     specialization: "", 
     licenseNumber: "", 
     experience: "", 
-    password: "" 
   });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
 
   useEffect(() => {
     const fetchAdminData = async () => {
       const user = auth.currentUser;
       if (user) {
-        const adminRef = ref(db, `law_firm_admin/${user.uid}`);
-        const snapshot = await get(adminRef);
-        if (snapshot.exists()) {
-          setLawFirmAdmin(snapshot.val());
+        // Get admin data from localStorage/sessionStorage first for faster loading
+        const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
+        if (storedAdmin) {
+          setLawFirmAdmin(JSON.parse(storedAdmin));
         } else {
-          setError("Error: Law firm admin not found!");
-          navigate("/");
+          // Fallback to database query if not in storage
+          try {
+            const adminRef = ref(db, `law_firm_admin/${user.uid}`);
+            const snapshot = await get(adminRef);
+            if (snapshot.exists()) {
+              setLawFirmAdmin(snapshot.val());
+            } else {
+              setError("Error: Law firm admin not found!");
+              navigate("/");
+            }
+          } catch (err) {
+            console.error('Error fetching admin data:', err);
+            setError("Error loading admin data. Please refresh the page.");
+          }
         }
       }
     };
@@ -66,54 +80,68 @@ const AddLawyer = () => {
     }
   
     // Basic validation
-    if (!lawyer.name || !lawyer.email || !lawyer.password) {
+    if (!lawyer.name || !lawyer.email) {
       setError("Please fill in all required fields.");
       return;
     }
   
     setIsLoading(true);
     setError("");
+    setSuccess("");
     
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, lawyer.email, lawyer.password);
-      const lawyerUID = userCredential.user.uid;
-  
-      const secretariesRef = ref(db, "secretaries");
-      const secretariesSnap = await get(secretariesRef);
-  
-      let secretaryId = null;
-      if (secretariesSnap.exists()) {
-        Object.entries(secretariesSnap.val()).forEach(([secId, secData]) => {
-          if (secData.lawFirm === lawFirmAdmin.lawFirm) {
-            secretaryId = secId;
-          }
-        });
-      }
-  
-      await set(ref(db, `lawyers/${lawyerUID}`), {
-        name: lawyer.name,
-        email: lawyer.email,
-        phone: lawyer.phone,
-        specialization: lawyer.specialization,
-        licenseNumber: lawyer.licenseNumber,
-        experience: lawyer.experience,
-        role: "lawyer",
-        profileImage: preview || "",
+      // Prepare lawyer data for API call
+      const lawyerData = {
+        ...lawyer,
         lawFirm: lawFirmAdmin.lawFirm,
         adminUID: lawFirmAdmin.uid,
-        secretaryId: secretaryId || "",
-      });
-  
-      await sendEmailVerification(userCredential.user);
+      };
       
-      setLawyer({ name: "", email: "", phone: "", specialization: "", licenseNumber: "", experience: "", password: "" });
-      setImage(null);
-      setPreview(null);
+      // If there's a preview image (from the file input)
+      if (preview) {
+        lawyerData.profileImage = preview;
+      }
       
-      alert("Lawyer account created successfully! Verification email sent.");
-      setTimeout(() => navigate("/"), 1000);
+      // Use API service to create lawyer
+      const response = await apiService.createLawyer(lawyerData);
+      
+      // Check if the API call was successful
+      if (response && response.uid) {
+        setSuccess("Lawyer account created successfully!");
+        
+        // Store temp password for display
+        if (response.tempPassword) {
+          setTempPassword(response.tempPassword);
+        }
+        
+        // Track event for analytics
+        trackEvent("create_lawyer_success", { 
+          law_firm: lawFirmAdmin.lawFirm 
+        });
+        
+        // Reset form
+        setLawyer({ 
+          name: "", 
+          email: "", 
+          phone: "", 
+          specialization: "", 
+          licenseNumber: "", 
+          experience: "", 
+        });
+        setImage(null);
+        setPreview(null);
+        
+        // Redirect after a delay
+        setTimeout(() => navigate("/"), 3000);
+      }
     } catch (error) {
-      setError(error.message);
+      console.error("Error creating lawyer:", error);
+      setError(error.response?.data?.error || "Failed to create lawyer account. Please try again.");
+      
+      // Track error for analytics
+      trackEvent("create_lawyer_error", { 
+        error: error.response?.data?.error || error.message 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -136,6 +164,17 @@ const AddLawyer = () => {
           ) : (
             <div className="lawyer-card-content">
               {error && <div className="error-message">{error}</div>}
+              {success && (
+                <div className="success-message">
+                  {success}
+                  {tempPassword && (
+                    <div className="temp-password-info">
+                      <p>Temporary password: <strong>{tempPassword}</strong></p>
+                      <p>Please share this with the lawyer. They will be asked to change it on first login.</p>
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="lawyer-form-layout">
                 <div className="lawyer-image-section">
@@ -204,19 +243,6 @@ const AddLawyer = () => {
                     </div>
                     
                     <div className="form-group">
-                      <label htmlFor="password">Password *</label>
-                      <input 
-                        type="password" 
-                        id="password"
-                        name="password" 
-                        placeholder="Enter password" 
-                        value={lawyer.password} 
-                        onChange={handleChange} 
-                        required 
-                      />
-                    </div>
-                    
-                    <div className="form-group">
                       <label htmlFor="specialization">Specialization</label>
                       <input 
                         type="text" 
@@ -254,6 +280,7 @@ const AddLawyer = () => {
                   </div>
                   
                   <p className="form-note">* Required fields</p>
+                  <p className="form-note">A temporary password will be generated and shown after creation.</p>
                   
                   <div className="form-actions">
                     <Button 
