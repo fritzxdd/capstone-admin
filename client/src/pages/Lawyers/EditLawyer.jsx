@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../../services/firebase";
-import { ref, get } from "firebase/database";
+import { auth, db } from "../../services/firebase";
+import { ref, get, update, remove } from "firebase/database";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
@@ -22,30 +22,33 @@ const LawyerDetails = () => {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    const fetchLawyerData = async () => {
-      setIsLoading(true);
-      try {
-        // Using Firebase directly for now, but could be replaced with API call
-        const lawyerRef = ref(db, `lawyers/${id}`);
-        const snapshot = await get(lawyerRef);
-        
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          setLawyer(data);
-          setServices(data.services || []);
-        } else {
-          setError("Lawyer not found.");
-        }
-      } catch (error) {
-        console.error("Error fetching lawyer data:", error);
-        setError("Failed to load lawyer details. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLawyerData();
   }, [id]);
+
+  const fetchLawyerData = async () => {
+    setIsLoading(true);
+    try {
+      console.log(`Fetching lawyer data for ID: ${id}`);
+      // Using Firebase directly for reliable data fetching
+      const lawyerRef = ref(db, `lawyers/${id}`);
+      const snapshot = await get(lawyerRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        console.log("Lawyer data:", data);
+        setLawyer(data);
+        setServices(data.services || []);
+      } else {
+        console.error("Lawyer not found");
+        setError("Lawyer not found.");
+      }
+    } catch (error) {
+      console.error("Error fetching lawyer data:", error);
+      setError("Failed to load lawyer details. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleProfileImageChange = (e) => {
     const file = e.target.files[0];
@@ -85,8 +88,19 @@ const LawyerDetails = () => {
     setSuccess("");
     
     try {
-      // Using our API service to update the lawyer
-      await apiService.updateLawyer(id, lawyer);
+      console.log(`Updating lawyer ${id} with data:`, lawyer);
+      
+      // Try both methods to update the lawyer
+      try {
+        // First try API service
+        await apiService.updateLawyer(id, lawyer);
+      } catch (apiError) {
+        console.error("API update failed, trying direct Firebase update:", apiError);
+        
+        // Fallback to direct Firebase update
+        const lawyerRef = ref(db, `lawyers/${id}`);
+        await update(lawyerRef, lawyer);
+      }
       
       setSuccess("Lawyer updated successfully.");
       setIsEditing(false);
@@ -95,11 +109,11 @@ const LawyerDetails = () => {
       trackEvent("update_lawyer_success", { lawyer_id: id });
     } catch (error) {
       console.error("Error updating lawyer:", error);
-      setError(error.response?.data?.error || "Failed to update lawyer. Please try again.");
+      setError("Failed to update lawyer. Please try again.");
       
       // Track error
       trackEvent("update_lawyer_error", { 
-        error: error.response?.data?.error || error.message 
+        error: error.message
       });
     } finally {
       setIsLoading(false);
@@ -116,9 +130,19 @@ const LawyerDetails = () => {
       setNewService("");
 
       try {
-        // Update Firebase directly for now, but could be API call
+        // Update Firebase with services
         const updateData = { services: updatedServices };
-        await apiService.updateLawyer(id, updateData);
+        
+        try {
+          // First try API service
+          await apiService.updateLawyer(id, updateData);
+        } catch (apiError) {
+          console.error("API service update failed, trying direct Firebase update:", apiError);
+          
+          // Fallback to direct Firebase update
+          const lawyerRef = ref(db, `lawyers/${id}`);
+          await update(lawyerRef, updateData);
+        }
         
         // Track success
         trackEvent("add_lawyer_service_success", { 
@@ -134,7 +158,7 @@ const LawyerDetails = () => {
         
         // Track error
         trackEvent("add_lawyer_service_error", { 
-          error: error.response?.data?.error || error.message 
+          error: error.message
         });
       }
     }
@@ -146,8 +170,18 @@ const LawyerDetails = () => {
       setError("");
       
       try {
-        // Use API to delete the lawyer
-        await apiService.deleteLawyer(id);
+        console.log(`Deleting lawyer with ID: ${id}`);
+        
+        try {
+          // First try API service
+          await apiService.deleteLawyer(id);
+        } catch (apiError) {
+          console.error("API delete failed, trying direct Firebase delete:", apiError);
+          
+          // Fallback to direct Firebase delete
+          const lawyerRef = ref(db, `lawyers/${id}`);
+          await remove(lawyerRef);
+        }
         
         setSuccess("Lawyer deleted successfully.");
         
@@ -158,36 +192,14 @@ const LawyerDetails = () => {
         setTimeout(() => navigate("/"), 1500);
       } catch (error) {
         console.error("Error deleting lawyer:", error);
-        setError(error.response?.data?.error || "Failed to delete lawyer. Please try again.");
+        setError("Failed to delete lawyer. Please try again.");
         setIsLoading(false);
         
         // Track error
         trackEvent("delete_lawyer_error", { 
-          error: error.response?.data?.error || error.message 
+          error: error.message
         });
       }
-    }
-  };
-
-  // Helper function to fetch data again
-  const fetchLawyerData = async () => {
-    setIsLoading(true);
-    try {
-      const lawyerRef = ref(db, `lawyers/${id}`);
-      const snapshot = await get(lawyerRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        setLawyer(data);
-        setServices(data.services || []);
-      } else {
-        setError("Lawyer not found.");
-      }
-    } catch (error) {
-      console.error("Error fetching lawyer data:", error);
-      setError("Failed to load lawyer details. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
   };
 

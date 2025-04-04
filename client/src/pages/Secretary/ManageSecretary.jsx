@@ -67,32 +67,154 @@ const ManageSecretary = () => {
       setIsLoading(false);
     };
 
-    const fetchSecretary = async (lawFirm) => {
-      try {
-        // Use the API endpoint
-        const secretary = await apiService.getSecretaryByLawFirm(lawFirm);
+    // Replace your current fetchSecretary function with this improved version
+
+const fetchSecretary = async (lawFirm) => {
+  try {
+    // Clear any previous error
+    setError("");
+    
+    console.log(`Trying to fetch secretary for law firm: "${lawFirm}"`);
+    
+    // First, let's try to get all secretaries and log them for debugging
+    console.log("Getting all secretaries to see what's available...");
+    const allSecretariesRef = ref(db, 'secretaries');
+    const allSnapshot = await get(allSecretariesRef);
+    
+    console.log("All secretaries exist in database:", allSnapshot.exists());
+    
+    if (allSnapshot.exists()) {
+      console.log("Listing all secretaries:");
+      allSnapshot.forEach((childSnapshot) => {
+        const secretaryData = childSnapshot.val();
+        console.log(`Secretary ID: ${childSnapshot.key}`);
+        console.log(`  Name: ${secretaryData.name}`);
+        console.log(`  Email: ${secretaryData.email}`);
+        console.log(`  Law Firm: ${secretaryData.lawFirm}`);
+        console.log(`  Admin UID: ${secretaryData.adminUID}`);
+      });
+    }
+    
+    // APPROACH 1: Try querying by adminUID instead of lawFirm - THIS IS MORE RELIABLE
+    const adminUID = lawFirmAdmin?.uid;
+    console.log(`Querying secretaries where adminUID = "${adminUID}"`);
+    
+    if (adminUID) {
+      const secretariesRef = ref(db, 'secretaries');
+      const secretariesQuery = query(secretariesRef, orderByChild('adminUID'), equalTo(adminUID));
+      
+      const snapshot = await get(secretariesQuery);
+      console.log("Query by adminUID results exists:", snapshot.exists());
+      
+      if (snapshot.exists()) {
+        let secretaryData = null;
         
-        if (secretary) {
-          setExistingSecretary(secretary);
+        snapshot.forEach((childSnapshot) => {
+          if (!secretaryData) { // Take the first one found
+            secretaryData = {
+              id: childSnapshot.key,
+              ...childSnapshot.val()
+            };
+          }
+        });
+        
+        if (secretaryData) {
+          console.log("Found secretary by adminUID:", secretaryData);
+          setExistingSecretary(secretaryData);
           setSecretary({
-            name: secretary.name || "",
-            email: secretary.email || "",
-            phone: secretary.phone || ""
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
           });
           setInitialData({
-            name: secretary.name || "",
-            email: secretary.email || "",
-            phone: secretary.phone || ""
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
           });
-        }
-      } catch (error) {
-        // 404 error means no secretary found, which is not really an error
-        if (error.response?.status !== 404) {
-          console.error("Error fetching secretary:", error);
-          setError("Failed to load secretary data. Please try again.");
+          return; // Successfully found secretary
         }
       }
-    };
+    }
+    
+    // APPROACH 2: If that didn't work, try looking up the specific secretary by ID
+    // This is useful if you know the ID (like "IvymTtYpqldpCOgbdnaIlv73dS92")
+    const secretaryId = "IvymTtYpqldpCOgbdnaIlv73dS92"; // Replace with the actual ID from your log
+    console.log(`Trying direct lookup by ID: ${secretaryId}`);
+    
+    const secretaryRef = ref(db, `secretaries/${secretaryId}`);
+    const directSnapshot = await get(secretaryRef);
+    
+    if (directSnapshot.exists()) {
+      const secretaryData = {
+        id: secretaryId,
+        ...directSnapshot.val()
+      };
+      
+      console.log("Found secretary by direct ID lookup:", secretaryData);
+      setExistingSecretary(secretaryData);
+      setSecretary({
+        name: secretaryData.name || "",
+        email: secretaryData.email || "",
+        phone: secretaryData.phone || ""
+      });
+      setInitialData({
+        name: secretaryData.name || "",
+        email: secretaryData.email || "",
+        phone: secretaryData.phone || ""
+      });
+      return; // Successfully found secretary
+    }
+    
+    // APPROACH 3: Original lawFirm query as a fallback
+    if (lawFirm) {
+      console.log(`Falling back to original query by lawFirm: "${lawFirm}"`);
+      const secretariesRef = ref(db, 'secretaries');
+      const secretariesQuery = query(secretariesRef, orderByChild('lawFirm'), equalTo(lawFirm));
+      
+      const snapshot = await get(secretariesQuery);
+      console.log("Query by lawFirm results exists:", snapshot.exists());
+      
+      if (snapshot.exists()) {
+        let secretaryData = null;
+        
+        snapshot.forEach((childSnapshot) => {
+          if (!secretaryData) { // Take the first one found
+            secretaryData = {
+              id: childSnapshot.key,
+              ...childSnapshot.val()
+            };
+          }
+        });
+        
+        if (secretaryData) {
+          console.log("Found secretary by lawFirm:", secretaryData);
+          setExistingSecretary(secretaryData);
+          setSecretary({
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
+          });
+          setInitialData({
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
+          });
+          return; // Successfully found secretary
+        }
+      }
+    }
+    
+    // If we got here, no secretary was found with any method
+    console.log("No secretary found after trying all approaches");
+    setExistingSecretary(null);
+    setSecretary({ name: "", email: "", phone: "" });
+    setInitialData(null);
+    
+  } catch (error) {
+    console.error("Error fetching secretary:", error);
+    setError("Failed to load secretary data. Please try again.");
+  }
+};
 
     fetchAdminData();
   }, [navigate]);
