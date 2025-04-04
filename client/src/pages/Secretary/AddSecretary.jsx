@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { ref, set, push, get } from "firebase/database";
+import Button from "../../components/UI/Button";
+import Card from "../../components/UI/Card";
+import Loading from "../../components/UI/Loading";
 import "../../styles/index.css";
 
 const AddSecretary = () => {
@@ -19,6 +22,7 @@ const AddSecretary = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
+  const [generatedPassword, setGeneratedPassword] = useState("");
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -45,6 +49,20 @@ const AddSecretary = () => {
       ...prevState,
       [name]: value
     }));
+  };
+
+  // Generate a temporary password
+  const generateTemporaryPassword = () => {
+    // Generate a random password: "Temp" + 4 random digits + "!"
+    const randomDigits = Math.floor(1000 + Math.random() * 9000); // 4-digit number
+    const tempPassword = `Temp${randomDigits}!`;
+    setGeneratedPassword(tempPassword);
+    setSecretary(prevState => ({
+      ...prevState,
+      password: tempPassword,
+      confirmPassword: tempPassword
+    }));
+    return tempPassword;
   };
 
   const validateForm = () => {
@@ -132,6 +150,7 @@ const AddSecretary = () => {
           role: "secretary",
           lawFirm: adminData.lawFirm,
           adminUID: adminUID,
+          passwordChanged: generatedPassword ? false : true, // Track if using temp password
           createdAt: new Date().toISOString()
         });
         
@@ -142,15 +161,6 @@ const AddSecretary = () => {
         setSuccess(true);
         setSecretary({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
         setAdminCredentials(prev => ({ ...prev, password: "" }));
-        
-        // Update success message to mention verification email
-        setSuccess(true);
-        
-        // Redirect to dashboard
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
-        
       } catch (error) {
         // Try to sign back in as admin if something went wrong
         try {
@@ -178,7 +188,7 @@ const AddSecretary = () => {
   return (
     <div className="app-container">
       <div className="app-content">
-        <div className="secretary-card">
+        <Card className="secretary-card">
           <div className="secretary-header">
             <button onClick={() => navigate("/")} className="back-button">
               <span className="icon-back"></span>
@@ -194,6 +204,12 @@ const AddSecretary = () => {
               <div className="success-message">
                 <span className="success-icon">✓</span> 
                 Secretary account created successfully! Verification email sent.
+                {generatedPassword && (
+                  <div className="temp-password-info">
+                    <p>Temporary password: <strong>{generatedPassword}</strong></p>
+                    <p>Please share this with the secretary. They will need to change it after first login.</p>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -237,15 +253,27 @@ const AddSecretary = () => {
                 
                 <div className="form-group">
                   <label htmlFor="password">Password <span className="required">*</span></label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={secretary.password}
-                    onChange={handleChange}
-                    placeholder="Enter password"
-                    required
-                  />
+                  <div className="password-input-group">
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={secretary.password}
+                      onChange={handleChange}
+                      placeholder="Enter password or generate one"
+                      required
+                    />
+                    <button 
+                      type="button" 
+                      className="generate-password-btn"
+                      onClick={generateTemporaryPassword}
+                    >
+                      Generate
+                    </button>
+                  </div>
+                  <small className="help-text">
+                    {generatedPassword ? "A temporary password has been generated. The secretary will need to change it after first login." : "You can enter a password or click Generate for a temporary one."}
+                  </small>
                 </div>
                 
                 <div className="form-group">
@@ -275,31 +303,36 @@ const AddSecretary = () => {
                   <small className="help-text">Required to create the secretary account</small>
                 </div>
                 
+                <div className="email-verification-note">
+                  <p>A verification email will be sent to the secretary's email address. 
+                    They must verify their email before logging in.</p>
+                </div>
+                
                 <div className="form-note">
                   <span className="required">*</span> Required fields
                 </div>
                 
                 <div className="form-actions">
-                  <button 
-                    className="btn-primary"
+                  <Button 
+                    variant="primary"
                     onClick={addSecretary}
                     disabled={isLoading}
                   >
                     {isLoading ? 'Processing...' : 'Add Secretary'}
-                  </button>
+                  </Button>
                   
-                  <button 
-                    className="btn-secondary"
+                  <Button 
+                    variant="secondary"
                     onClick={() => navigate("/")}
                     disabled={isLoading}
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

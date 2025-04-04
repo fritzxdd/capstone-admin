@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../services/firebase";
-import { ref, get } from "firebase/database";
+import { auth, db } from "../../services/firebase";
+import { ref, get, update } from "firebase/database";
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
@@ -25,7 +26,11 @@ const ManageSecretary = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [tempPassword, setTempPassword] = useState("");
+  const [adminCredentials, setAdminCredentials] = useState({
+    email: "",
+    password: ""
+  });
+  const [showAdminAuth, setShowAdminAuth] = useState(false);
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -33,6 +38,8 @@ const ManageSecretary = () => {
       const user = auth.currentUser;
       if (user) {
         try {
+          setAdminCredentials(prev => ({ ...prev, email: user.email }));
+          
           // Get admin data from localStorage/sessionStorage first
           const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
           if (storedAdmin) {
@@ -62,7 +69,7 @@ const ManageSecretary = () => {
 
     const fetchSecretary = async (lawFirm) => {
       try {
-        // Use the new API endpoint
+        // Use the API endpoint
         const secretary = await apiService.getSecretaryByLawFirm(lawFirm);
         
         if (secretary) {
@@ -106,17 +113,7 @@ const ManageSecretary = () => {
   };
 
   const enableCreating = () => {
-    setIsCreating(true);
-    setIsEditing(false);
-    setError("");
-    setSuccess("");
-    
-    // Reset form for new secretary
-    setSecretary({
-      name: "",
-      email: "",
-      phone: ""
-    });
+    navigate("/add-secretary");
   };
 
   const cancelEditing = () => {
@@ -132,60 +129,27 @@ const ManageSecretary = () => {
     setSuccess("");
   };
 
-  const createSecretary = async () => {
-    if (!lawFirmAdmin) {
-      setError("Law firm admin data not loaded");
+  // Handle password reset
+  const handleResetPassword = async () => {
+    if (!existingSecretary || !existingSecretary.email) {
+      setError("Secretary email not found");
       return;
     }
-
-    if (!secretary.name || !secretary.email) {
-      setError("Name and email are required");
-      return;
-    }
-
+    
     setIsLoading(true);
-    setError("");
-    setSuccess("");
-
     try {
-      // Prepare secretary data
-      const secretaryData = {
-        name: secretary.name,
-        email: secretary.email,
-        phone: secretary.phone || '',
-        lawFirm: lawFirmAdmin.lawFirm,
-        adminUID: lawFirmAdmin.uid
-      };
-
-      // Call API to create secretary
-      const response = await apiService.createSecretary(secretaryData);
+      // Use Firebase's password reset functionality
+      await sendPasswordResetEmail(auth, existingSecretary.email);
       
-      if (response && response.uid) {
-        // Save the temp password to display
-        if (response.tempPassword) {
-          setTempPassword(response.tempPassword);
-        }
-        
-        setSuccess("Secretary account created successfully!");
-        
-        // Track event for analytics
-        trackEvent("create_secretary_success", { 
-          law_firm: lawFirmAdmin.lawFirm 
-        });
-        
-        // Refresh data after a delay
-        setTimeout(() => {
-          setIsCreating(false);
-          fetchSecretary(lawFirmAdmin.lawFirm);
-        }, 1000);
-      }
+      setSuccess(`Password reset email sent to ${existingSecretary.email}`);
+      trackEvent("secretary_password_reset_success", {
+        secretary_id: existingSecretary.id
+      });
     } catch (error) {
-      console.error("Error creating secretary:", error);
-      setError(error.response?.data?.error || "Failed to create secretary account. Please try again.");
-      
-      // Track error
-      trackEvent("create_secretary_error", { 
-        error: error.response?.data?.error || error.message 
+      console.error("Error sending password reset:", error);
+      setError("Failed to send password reset email: " + error.message);
+      trackEvent("secretary_password_reset_error", { 
+        error: error.message 
       });
     } finally {
       setIsLoading(false);
@@ -239,13 +203,47 @@ const ManageSecretary = () => {
   };
 
   const initiateDelete = () => {
-    setConfirmDelete(true);
+    setAdminCredentials(prev => ({ ...prev, password: "" }));
+    setShowAdminAuth(true);
     setError("");
     setSuccess("");
   };
 
   const cancelDelete = () => {
     setConfirmDelete(false);
+    setShowAdminAuth(false);
+  };
+
+  const verifyAdminPassword = async () => {
+    if (!adminCredentials.password) {
+      setError("Please enter your admin password to continue");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Since we don't have a direct verify endpoint, we'll try to sign in with the credentials
+      // This is a workaround - in a production app, it would be better to have a dedicated endpoint
+      const adminEmail = auth.currentUser?.email;
+      
+      // Store the current user
+      const currentUser = auth.currentUser;
+      
+      // Try to sign in with the provided password
+      await signInWithEmailAndPassword(auth, adminEmail, adminCredentials.password);
+      
+      // If we get here, the password is correct - we're already signed in as the same user
+      setShowAdminAuth(false);
+      setConfirmDelete(true);
+      
+      // No need to sign back in since we're already signed in with the same user
+    } catch (error) {
+      console.error("Error verifying admin password:", error);
+      setError("Invalid password. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const deleteSecretary = async () => {
@@ -308,6 +306,39 @@ const ManageSecretary = () => {
               {error && <div className="error-message">{error}</div>}
               {success && <div className="success-message">{success}</div>}
               
+              {showAdminAuth && (
+                <div className="admin-auth-overlay">
+                  <div className="admin-auth-form">
+                    <h3>Admin Authentication</h3>
+                    <p>Please enter your admin password to continue with this action.</p>
+                    <div className="form-group">
+                      <label htmlFor="adminPassword">Admin Password</label>
+                      <input 
+                        type="password" 
+                        id="adminPassword" 
+                        value={adminCredentials.password}
+                        onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Enter your admin password"
+                      />
+                    </div>
+                    <div className="auth-actions">
+                      <Button 
+                        variant="primary" 
+                        onClick={verifyAdminPassword}
+                      >
+                        Verify
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        onClick={cancelDelete}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="secretary-profile">
                 <div className="secretary-avatar">
                   {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
@@ -364,6 +395,13 @@ const ManageSecretary = () => {
                   </Button>
                   
                   <Button 
+                    variant="secondary" 
+                    onClick={handleResetPassword}
+                  >
+                    Reset Password
+                  </Button>
+                  
+                  <Button 
                     variant="danger" 
                     icon="delete"
                     onClick={initiateDelete}
@@ -373,20 +411,10 @@ const ManageSecretary = () => {
                 </div>
               )}
             </div>
-          ) : (isEditing || isCreating) ? (
+          ) : isEditing ? (
             <div className="secretary-edit-form">
               {error && <div className="error-message">{error}</div>}
-              {success && (
-                <div className="success-message">
-                  {success}
-                  {tempPassword && (
-                    <div className="temp-password-info">
-                      <p>Temporary password: <strong>{tempPassword}</strong></p>
-                      <p>Please share this with the secretary. They will be asked to change it on first login.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              {success && <div className="success-message">{success}</div>}
               
               <div className="form-grid">
                 <div className="form-group">
@@ -429,28 +457,15 @@ const ManageSecretary = () => {
               </div>
               
               <p className="form-note">* Required fields</p>
-              {isCreating && (
-                <p className="form-note">A temporary password will be generated and shown after creation.</p>
-              )}
               
               <div className="form-actions">
-                {isEditing ? (
-                  <Button 
-                    variant="success" 
-                    icon="save"
-                    onClick={saveSecretaryChanges}
-                  >
-                    Save Changes
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="success" 
-                    icon="add"
-                    onClick={createSecretary}
-                  >
-                    Create Secretary
-                  </Button>
-                )}
+                <Button 
+                  variant="success" 
+                  icon="save"
+                  onClick={saveSecretaryChanges}
+                >
+                  Save Changes
+                </Button>
                 
                 <Button 
                   variant="secondary" 
