@@ -64,7 +64,7 @@ const Login = () => {
           
           // Add a small delay to make sure storage operations complete
           setTimeout(() => {
-            navigate("/");
+            window.location.href = "/";
           }, 500);
           
         } else {
