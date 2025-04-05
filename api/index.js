@@ -4,30 +4,36 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 
+
+dotenv.config({ path: '../server/.env' });
 // Initialize Firebase Admin
 let serviceAccount;
 try {
   // Try to parse the service account from environment variable
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('Parsed service account from environment variable');
+  } else {
+    console.error('FIREBASE_SERVICE_ACCOUNT environment variable is not set');
+  }
 } catch (error) {
   console.error('Error parsing Firebase service account:', error);
-  // Fallback to looking for a direct path to service account file
-  try {
-    serviceAccount = require('../server/firebase-service-account.json');
-  } catch (fallbackError) {
-    console.error('Could not load service account file either:', fallbackError);
-  }
 }
 
 // Initialize Firebase Admin with service account if available
 if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_DATABASE_URL || "https://weassist-f2a77-default-rtdb.firebaseio.com",
-  });
-} else {
-  console.error('No Firebase service account available, API will not function correctly');
-}
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: process.env.FIREBASE_DATABASE_URL || "https://weassist-f2a77-default-rtdb.firebaseio.com",
+      });
+      console.log('Firebase Admin initialized successfully');
+    } catch (initError) {
+      console.error('Firebase initialization error:', initError);
+    }
+  } else {
+    console.error('No Firebase service account available, API will not function correctly');
+  }
 
 // Create Express app
 const app = express();
