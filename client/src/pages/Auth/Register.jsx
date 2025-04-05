@@ -7,6 +7,7 @@ import logo from "../../assets/logo.png";
 import "../../styles/index.css";
 import axios from "axios";
 import { getApiBaseUrl, getAppDomain } from '../utils/apiConfig';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 
 const RegistrationDescription = () => {
   return (
