@@ -1,28 +1,16 @@
 {
     "version": 2,
-    "builds": [
-      {
-        "src": "client/package.json",
-        "use": "@vercel/vite",
-        "config": {
-          "distDir": "client/dist"
-        }
-      },
-      {
-        "src": "server/server.js",
-        "use": "@vercel/node"
-      }
+    "buildCommand": "cd client && npm install && npm run build",
+    "outputDirectory": "client/dist",
+    "rewrites": [
+      { "source": "/api/(.*)", "destination": "/api" }
     ],
-    "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/server/server.js"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/client/index.html"
+    "functions": {
+      "api/index.js": {
+        "memory": 1024,
+        "maxDuration": 10
       }
-    ],
+    },
     "env": {
       "FIREBASE_DATABASE_URL": "https://weassist-f2a77-default-rtdb.firebaseio.com"
     }
