@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
@@ -24,12 +24,15 @@ const AddLawyer = () => {
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
 
   useEffect(() => {
     const fetchAdminData = async () => {
       const user = auth.currentUser;
       if (user) {
+        setAdminCredentials(prev => ({ ...prev, email: user.email }));
         const adminRef = ref(db, `law_firm_admin/${user.uid}`);
         const snapshot = await get(adminRef);
         if (snapshot.exists()) {
@@ -79,9 +82,13 @@ const AddLawyer = () => {
       return;
     }
   
-    // Basic validation
     if (!lawyer.name || !lawyer.email) {
       setError("Please fill in all required fields.");
+      return;
+    }
+    
+    if (!adminCredentials.password) {
+      setError("Admin password is required to complete this action.");
       return;
     }
   
@@ -89,68 +96,101 @@ const AddLawyer = () => {
     setError("");
     
     try {
+      // Store admin information
+      const adminUser = auth.currentUser;
+      const adminUID = adminUser.uid;
+      const adminEmail = adminCredentials.email;
+      const adminPassword = adminCredentials.password;
+      const adminData = { ...lawFirmAdmin };
+      
+      // First, verify the admin password is correct by testing a sign-in
+      try {
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        // Password is correct, continue (still logged in as admin)
+      } catch (error) {
+        setError("Admin password is incorrect. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+      
       // Generate a temporary password if not provided
       const password = lawyer.password || generateTemporaryPassword();
       
-      // Create user account
-      const userCredential = await createUserWithEmailAndPassword(auth, lawyer.email, password);
-      const lawyerUID = userCredential.user.uid;
-      
-      // Send verification email
+      // Create the lawyer account
       try {
+        // This will log out the admin and log in as the lawyer
+        const userCredential = await createUserWithEmailAndPassword(
+          auth, 
+          lawyer.email, 
+          password
+        );
+        
+        // Send verification email to the lawyer using the imported function
         await sendEmailVerification(userCredential.user);
-        console.log("Verification email sent to", lawyer.email);
-      } catch (verificationError) {
-        console.error("Error sending verification email:", verificationError);
-        // Continue with the process even if verification email fails
-      }
-  
-      // Check for secretary
-      const secretariesRef = ref(db, "secretaries");
-      const secretariesSnap = await get(secretariesRef);
-  
-      let secretaryId = null;
-      if (secretariesSnap.exists()) {
-        Object.entries(secretariesSnap.val()).forEach(([secId, secData]) => {
-          if (secData.lawFirm === lawFirmAdmin.lawFirm) {
-            secretaryId = secId;
-          }
+        
+        const lawyerUID = userCredential.user.uid;
+        
+        // Check for secretary
+        const secretariesRef = ref(db, "secretaries");
+        const secretariesSnap = await get(secretariesRef);
+      
+        let secretaryId = null;
+        if (secretariesSnap.exists()) {
+          Object.entries(secretariesSnap.val()).forEach(([secId, secData]) => {
+            if (secData.lawFirm === lawFirmAdmin.lawFirm) {
+              secretaryId = secId;
+            }
+          });
+        }
+        
+        // Save lawyer data to database
+        await set(ref(db, `lawyers/${lawyerUID}`), {
+          name: lawyer.name,
+          email: lawyer.email,
+          phone: lawyer.phone || "",
+          specialization: lawyer.specialization || "",
+          licenseNumber: lawyer.licenseNumber || "",
+          experience: lawyer.experience || "",
+          role: "lawyer",
+          profileImage: preview || "",
+          lawFirm: lawFirmAdmin.lawFirm,
+          adminUID: adminUID,
+          secretaryId: secretaryId || "",
+          passwordChanged: false, // Indicate this is a temporary password
+          createdAt: new Date().toISOString()
         });
-      }
-  
-      // Save lawyer data to database
-      await set(ref(db, `lawyers/${lawyerUID}`), {
-        name: lawyer.name,
-        email: lawyer.email,
-        phone: lawyer.phone,
-        specialization: lawyer.specialization,
-        licenseNumber: lawyer.licenseNumber,
-        experience: lawyer.experience,
-        role: "lawyer",
-        profileImage: preview || "",
-        lawFirm: lawFirmAdmin.lawFirm,
-        adminUID: lawFirmAdmin.uid,
-        secretaryId: secretaryId || "",
-        passwordChanged: false, // Indicate this is a temporary password
-        createdAt: new Date().toISOString()
-      });
-  
-      // Reset form state
-      setLawyer({ name: "", email: "", phone: "", specialization: "", licenseNumber: "", experience: "", password: "" });
-      setImage(null);
-      setPreview(null);
-      
-      // Show message with generated password if auto-generated
-      if (generatedPassword) {
-        alert(`Lawyer account created successfully with temporary password: ${generatedPassword}\nVerification email sent. The lawyer must verify their email before logging in.`);
-      } else {
-        alert("Lawyer account created successfully! Verification email sent.");
+        
+        // Now sign back in as admin
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        
+        // Success! Admin is logged back in
+        setSuccess(`Lawyer account created successfully! Verification email sent to ${lawyer.email}. 
+                   Temporary password: ${password}`);
+        setLawyer({ name: "", email: "", phone: "", specialization: "", licenseNumber: "", experience: "", password: "" });
+        setAdminCredentials(prev => ({ ...prev, password: "" }));
+        setImage(null);
+        setPreview(null);
+        setGeneratedPassword("");
+        
+      } catch (error) {
+        // Try to sign back in as admin if something went wrong
+        try {
+          await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        } catch (e) {
+          // Handle re-login failure
+          console.error("Failed to sign back in as admin:", e);
+        }
+        
+        throw error; // Re-throw the original error
       }
       
-      setGeneratedPassword(""); // Clear the generated password
-      setTimeout(() => navigate("/"), 1000);
     } catch (error) {
-      setError(error.message);
+      console.error("Error creating lawyer account:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        setError("Email is already in use. Please try a different email address.");
+      } else {
+        setError(error.message || "Failed to create lawyer account.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -173,6 +213,7 @@ const AddLawyer = () => {
           ) : (
             <div className="lawyer-card-content">
               {error && <div className="error-message">{error}</div>}
+              {success && <div className="success-message">{success}</div>}
               
               <div className="lawyer-form-layout">
                 <div className="lawyer-image-section">
@@ -296,6 +337,20 @@ const AddLawyer = () => {
                         value={lawyer.experience} 
                         onChange={handleChange} 
                       />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="adminPassword">Your Password <span className="required">*</span></label>
+                      <input
+                        type="password"
+                        id="adminPassword"
+                        name="adminPassword"
+                        value={adminCredentials.password}
+                        onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Enter your admin password"
+                        required
+                      />
+                      <small className="help-text">Required to create the lawyer account</small>
                     </div>
                   </div>
                   
