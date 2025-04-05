@@ -10,9 +10,7 @@ dotenv.config();
 // Initialize Firebase Admin with service account
 // For a real implementation, use a secure method to provide credentials
 // You can use process.env.FIREBASE_SERVICE_ACCOUNT or load from a file
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : require('./firebase-service-account.json');
+const serviceAccount = require('./firebase-service-account.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
