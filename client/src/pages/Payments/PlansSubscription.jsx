@@ -31,8 +31,8 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
-        success_url: `http://localhost:5174/payment-success?userId=${user?.uid}`, 
-        cancel_url: 'http://localhost:5174/plans'
+        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
+        cancel_url: `${window.location.origin}/plans`
       });
       
       console.log('Response status:', response.status);
