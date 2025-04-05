@@ -6,6 +6,7 @@ import { auth, db } from "../../services/firebase";
 import logo from "../../assets/logo.png";
 import "../../styles/index.css";
 import axios from "axios";
+import { getApiBaseUrl, getAppDomain } from '../utils/apiConfig';
 
 const RegistrationDescription = () => {
   return (
@@ -92,7 +93,7 @@ const Register = () => {
       // Create trial subscription on server
       try {
         // Send info to backend
-        const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/subscriptions`, {
+        const response = await axios.post(`${getApiBaseUrl()}/subscriptions`, {
           userId: user.uid,
           planId: 'plan_trial',
           startDate: startDate.getTime()

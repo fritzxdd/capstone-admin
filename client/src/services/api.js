@@ -3,10 +3,11 @@ import axios from 'axios';
 import { auth, db } from './firebase';
 import { ref, get, set, update, remove, query, orderByChild, equalTo } from 'firebase/database';
 import analyticsService from './analytics';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 // Create an axios instance with base URL
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   }

@@ -6,6 +6,7 @@ import { ref, onValue, update } from "firebase/database";
 import axios from "axios";
 import SubscriptionStatus from "../../components/Subscription/SubscriptionStatus";
 import "../../styles/index.css";
+import { getApiBaseUrl, getAppDomain } from '../utils/apiConfig';
 
 // Using your existing Stripe key from the document
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
@@ -26,7 +27,7 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
       console.log('Creating checkout session for plan:', selectedPlan);
       
       // Call your backend to create a Checkout Session
-      const response = await axios.post('http://localhost:5000/create-checkout-session', {
+      const response = await axios.post(`${getApiBaseUrl()}/subscriptions`, {
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
@@ -177,8 +178,9 @@ const PlansSubscription = ({ showToast }) => {
     setFetchError(null);
     
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch("http://localhost:5000/api/plans");
+      // Use dynamic API base URL instead of hardcoded localhost
+      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+      const response = await fetch(`${apiBaseUrl}/plans`);
       
       if (!response.ok) {
         throw new Error("Failed to fetch plans");
@@ -235,11 +237,12 @@ const PlansSubscription = ({ showToast }) => {
     setLoadingPlan(true);
     
     try {
-      // Fetch the latest plan details before proceeding to checkout
-      const response = await fetch(`http://localhost:5000/api/plans/${plan.id}`);
+      // Use dynamic API base URL instead of hardcoded localhost
+      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+      const response = await fetch(`${apiBaseUrl}/plans`);
       
       if (!response.ok) {
-        throw new Error("Failed to fetch plan details");
+        throw new Error("Failed to fetch plans");
       }
       
       const updatedPlan = await response.json();
