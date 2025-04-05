@@ -6,7 +6,7 @@ import { ref, onValue, update } from "firebase/database";
 import axios from "axios";
 import SubscriptionStatus from "../../components/Subscription/SubscriptionStatus";
 import "../../styles/index.css";
-import { getApiBaseUrl, getAppDomain } from '../utils/apiConfig';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 
 // Using your existing Stripe key from the document
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
