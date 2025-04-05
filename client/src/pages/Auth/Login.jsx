@@ -12,7 +12,7 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(""); // For debugging
+  const [debugInfo, setDebugInfo] = useState("");
   
   const navigate = useNavigate();
 
@@ -33,45 +33,64 @@ const Login = () => {
       const adminRef = ref(db, "law_firm_admin/" + user.uid);
       setDebugInfo(prev => prev + `Checking if user is admin at path: law_firm_admin/${user.uid}\n`);
       
-      const snapshot = await get(adminRef);
-      
-      if (snapshot.exists()) {
-        setDebugInfo(prev => prev + "Admin data found. User is authorized.\n");
-        const adminData = snapshot.val();
+      try {
+        const snapshot = await get(adminRef);
         
-        if (rememberMe) {
-          localStorage.setItem("adminData", JSON.stringify(adminData));
-          setDebugInfo(prev => prev + "Storing admin data in localStorage\n");
+        if (snapshot.exists()) {
+          setDebugInfo(prev => prev + "Admin data found. User is authorized.\n");
+          const adminData = snapshot.val();
+          
+          // Log the admin data to debug
+          setDebugInfo(prev => prev + `Admin data found: ${JSON.stringify(adminData).substring(0, 100)}...\n`);
+          
+          if (rememberMe) {
+            localStorage.setItem("adminData", JSON.stringify(adminData));
+            setDebugInfo(prev => prev + "Storing admin data in localStorage\n");
+          } else {
+            sessionStorage.setItem("adminData", JSON.stringify(adminData));
+            setDebugInfo(prev => prev + "Storing admin data in sessionStorage\n");
+          }
+          
+          // Track successful login event
+          if (analytics) {
+            logEvent(analytics, "login", { 
+              method: "email_password",
+              admin_id: user.uid
+            });
+            setDebugInfo(prev => prev + "Logged login event to analytics\n");
+          }
+          
+          setDebugInfo(prev => prev + "Navigating to dashboard...\n");
+          
+          // Add a small delay to make sure storage operations complete
+          setTimeout(() => {
+            navigate("/");
+          }, 500);
+          
         } else {
-          sessionStorage.setItem("adminData", JSON.stringify(adminData));
-          setDebugInfo(prev => prev + "Storing admin data in sessionStorage\n");
+          setDebugInfo(prev => prev + "⚠️ NO ADMIN DATA FOUND for this user. Access denied.\n");
+          setError("Access Denied: You are not an admin!");
+          await signOut(auth);
+          
+          if (analytics) {
+            logEvent(analytics, "login_error", { 
+              error_type: "not_admin"
+            });
+          }
         }
-        
-        // Track successful login event
-        if (analytics) {
-          logEvent(analytics, "login", { 
-            method: "email_password",
-            admin_id: user.uid
-          });
-          setDebugInfo(prev => prev + "Logged login event to analytics\n");
-        }
-        
-        setDebugInfo(prev => prev + "Navigating to dashboard...\n");
-        navigate("/");
-      } else {
-        setDebugInfo(prev => prev + "No admin data found for this user. Access denied.\n");
-        setError("Access Denied: You are not an admin!");
-        await signOut(auth);
+      } catch (dbError) {
+        setDebugInfo(prev => prev + `⚠️ Error fetching admin data: ${dbError.message}\n`);
+        setError(`Database error: ${dbError.message}`);
         
         if (analytics) {
           logEvent(analytics, "login_error", { 
-            error_type: "not_admin"
+            error_type: "database_error"
           });
         }
       }
     } catch (error) {
       console.error("Login error:", error);
-      setDebugInfo(prev => prev + `Authentication error: ${error.code} - ${error.message}\n`);
+      setDebugInfo(prev => prev + `⚠️ Authentication error: ${error.code} - ${error.message}\n`);
       
       setError(`${error.message.includes("auth/invalid-credential") ? 
         "Invalid email or password. Please try again." : 
@@ -114,7 +133,8 @@ const Login = () => {
               marginBottom: "15px",
               fontSize: "12px",
               whiteSpace: "pre-line",
-              fontFamily: "monospace"
+              fontFamily: "monospace",
+              overflowX: "auto"
             }}>
               <strong>Debug Info:</strong><br/>
               {debugInfo}
