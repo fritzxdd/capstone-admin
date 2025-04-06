@@ -45,7 +45,7 @@ const ManageSecretary = () => {
           if (storedAdmin) {
             const adminData = JSON.parse(storedAdmin);
             setLawFirmAdmin(adminData);
-            await fetchSecretary(adminData.lawFirm);
+            await fetchSecretary(adminData.lawFirm, user.uid);
           } else {
             // Fallback to database query
             const adminRef = ref(db, `law_firm_admin/${user.uid}`);
@@ -53,7 +53,7 @@ const ManageSecretary = () => {
             if (snapshot.exists()) {
               const adminData = snapshot.val();
               setLawFirmAdmin(adminData);
-              await fetchSecretary(adminData.lawFirm);
+              await fetchSecretary(adminData.lawFirm, user.uid);
             } else {
               setError("Error: Law firm admin not found!");
               navigate("/");
@@ -67,157 +67,97 @@ const ManageSecretary = () => {
       setIsLoading(false);
     };
 
-    // Replace your current fetchSecretary function with this improved version
-
-const fetchSecretary = async (lawFirm) => {
-  try {
-    // Clear any previous error
-    setError("");
-    
-    console.log(`Trying to fetch secretary for law firm: "${lawFirm}"`);
-    
-    // First, let's try to get all secretaries and log them for debugging
-    console.log("Getting all secretaries to see what's available...");
-    const allSecretariesRef = ref(db, 'secretaries');
-    const allSnapshot = await get(allSecretariesRef);
-    
-    console.log("All secretaries exist in database:", allSnapshot.exists());
-    
-    if (allSnapshot.exists()) {
-      console.log("Listing all secretaries:");
-      allSnapshot.forEach((childSnapshot) => {
-        const secretaryData = childSnapshot.val();
-        console.log(`Secretary ID: ${childSnapshot.key}`);
-        console.log(`  Name: ${secretaryData.name}`);
-        console.log(`  Email: ${secretaryData.email}`);
-        console.log(`  Law Firm: ${secretaryData.lawFirm}`);
-        console.log(`  Admin UID: ${secretaryData.adminUID}`);
-      });
-    }
-    
-    // APPROACH 1: Try querying by adminUID instead of lawFirm - THIS IS MORE RELIABLE
-    const adminUID = lawFirmAdmin?.uid;
-    console.log(`Querying secretaries where adminUID = "${adminUID}"`);
-    
-    if (adminUID) {
-      const secretariesRef = ref(db, 'secretaries');
-      const secretariesQuery = query(secretariesRef, orderByChild('adminUID'), equalTo(adminUID));
-      
-      const snapshot = await get(secretariesQuery);
-      console.log("Query by adminUID results exists:", snapshot.exists());
-      
-      if (snapshot.exists()) {
-        let secretaryData = null;
-        
-        snapshot.forEach((childSnapshot) => {
-          if (!secretaryData) { // Take the first one found
-            secretaryData = {
-              id: childSnapshot.key,
-              ...childSnapshot.val()
-            };
-          }
-        });
-        
-        if (secretaryData) {
-          console.log("Found secretary by adminUID:", secretaryData);
-          setExistingSecretary(secretaryData);
-          setSecretary({
-            name: secretaryData.name || "",
-            email: secretaryData.email || "",
-            phone: secretaryData.phone || ""
-          });
-          setInitialData({
-            name: secretaryData.name || "",
-            email: secretaryData.email || "",
-            phone: secretaryData.phone || ""
-          });
-          return; // Successfully found secretary
-        }
-      }
-    }
-    
-    // APPROACH 2: If that didn't work, try looking up the specific secretary by ID
-    // This is useful if you know the ID (like "IvymTtYpqldpCOgbdnaIlv73dS92")
-    const secretaryId = "IvymTtYpqldpCOgbdnaIlv73dS92"; // Replace with the actual ID from your log
-    console.log(`Trying direct lookup by ID: ${secretaryId}`);
-    
-    const secretaryRef = ref(db, `secretaries/${secretaryId}`);
-    const directSnapshot = await get(secretaryRef);
-    
-    if (directSnapshot.exists()) {
-      const secretaryData = {
-        id: secretaryId,
-        ...directSnapshot.val()
-      };
-      
-      console.log("Found secretary by direct ID lookup:", secretaryData);
-      setExistingSecretary(secretaryData);
-      setSecretary({
-        name: secretaryData.name || "",
-        email: secretaryData.email || "",
-        phone: secretaryData.phone || ""
-      });
-      setInitialData({
-        name: secretaryData.name || "",
-        email: secretaryData.email || "",
-        phone: secretaryData.phone || ""
-      });
-      return; // Successfully found secretary
-    }
-    
-    // APPROACH 3: Original lawFirm query as a fallback
-    if (lawFirm) {
-      console.log(`Falling back to original query by lawFirm: "${lawFirm}"`);
-      const secretariesRef = ref(db, 'secretaries');
-      const secretariesQuery = query(secretariesRef, orderByChild('lawFirm'), equalTo(lawFirm));
-      
-      const snapshot = await get(secretariesQuery);
-      console.log("Query by lawFirm results exists:", snapshot.exists());
-      
-      if (snapshot.exists()) {
-        let secretaryData = null;
-        
-        snapshot.forEach((childSnapshot) => {
-          if (!secretaryData) { // Take the first one found
-            secretaryData = {
-              id: childSnapshot.key,
-              ...childSnapshot.val()
-            };
-          }
-        });
-        
-        if (secretaryData) {
-          console.log("Found secretary by lawFirm:", secretaryData);
-          setExistingSecretary(secretaryData);
-          setSecretary({
-            name: secretaryData.name || "",
-            email: secretaryData.email || "",
-            phone: secretaryData.phone || ""
-          });
-          setInitialData({
-            name: secretaryData.name || "",
-            email: secretaryData.email || "",
-            phone: secretaryData.phone || ""
-          });
-          return; // Successfully found secretary
-        }
-      }
-    }
-    
-    // If we got here, no secretary was found with any method
-    console.log("No secretary found after trying all approaches");
-    setExistingSecretary(null);
-    setSecretary({ name: "", email: "", phone: "" });
-    setInitialData(null);
-    
-  } catch (error) {
-    console.error("Error fetching secretary:", error);
-    setError("Failed to load secretary data. Please try again.");
-  }
-};
-
     fetchAdminData();
   }, [navigate]);
+
+  const fetchSecretary = async (lawFirm, adminUID) => {
+    try {
+      // Clear any previous error
+      setError("");
+      
+      console.log(`Trying to fetch secretary for law firm: "${lawFirm}" and adminUID: "${adminUID}"`);
+      
+      // First try - get all secretaries and find the ones that match
+      const secretariesRef = ref(db, 'secretaries');
+      const snapshot = await get(secretariesRef);
+      
+      if (snapshot.exists()) {
+        let secretaryData = null;
+        
+        snapshot.forEach((childSnapshot) => {
+          const data = childSnapshot.val();
+          
+          // Check by adminUID (most reliable)
+          if (data.adminUID === adminUID) {
+            secretaryData = {
+              id: childSnapshot.key,
+              ...data
+            };
+          }
+          
+          // If not found by adminUID, try by lawFirm
+          if (!secretaryData && data.lawFirm === lawFirm) {
+            secretaryData = {
+              id: childSnapshot.key,
+              ...data
+            };
+          }
+        });
+        
+        if (secretaryData) {
+          console.log("Found secretary:", secretaryData);
+          setExistingSecretary(secretaryData);
+          setSecretary({
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
+          });
+          setInitialData({
+            name: secretaryData.name || "",
+            email: secretaryData.email || "",
+            phone: secretaryData.phone || ""
+          });
+          return;
+        }
+      }
+      
+      // Try direct lookup with the known ID as a last resort
+      const knownSecretaryId = "Of96OfkWmghQl3XnfBd91TfOWUK2";
+      console.log(`Trying direct lookup by known ID: ${knownSecretaryId}`);
+      
+      const secretaryRef = ref(db, `secretaries/${knownSecretaryId}`);
+      const directSnapshot = await get(secretaryRef);
+      
+      if (directSnapshot.exists()) {
+        const secretaryData = {
+          id: knownSecretaryId,
+          ...directSnapshot.val()
+        };
+        console.log("Found secretary by direct ID lookup:", secretaryData);
+        setExistingSecretary(secretaryData);
+        setSecretary({
+          name: secretaryData.name || "",
+          email: secretaryData.email || "",
+          phone: secretaryData.phone || ""
+        });
+        setInitialData({
+          name: secretaryData.name || "",
+          email: secretaryData.email || "",
+          phone: secretaryData.phone || ""
+        });
+        return;
+      }
+      
+      console.log("No secretary found after trying all approaches");
+      setExistingSecretary(null);
+      setSecretary({ name: "", email: "", phone: "" });
+      setInitialData(null);
+      
+    } catch (error) {
+      console.error("Error fetching secretary:", error);
+      setError("Failed to load secretary data. Please try again.");
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
