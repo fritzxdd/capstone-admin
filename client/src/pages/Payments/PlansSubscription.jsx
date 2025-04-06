@@ -9,7 +9,7 @@ import "../../styles/index.css";
 import { getApiBaseUrl } from '../../utils/apiConfig';
 import Toast from "../../components/UI/Toast";
 
-// Initialize Stripe with your publishable key
+// Initialize Stripe with your publishable key - ensure this is the test mode key
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
 
 // Payment method selection component
@@ -33,71 +33,70 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
     setError(null);
     
     try {
+      // Log to confirm we're in the handler
+      console.log('Starting Stripe checkout process...');
+      
+      // Load Stripe
       const stripe = await stripePromise;
-      
-      console.log('Creating checkout session for plan:', selectedPlan);
-      
-      // First, store plan info in user data for confirmation after payment
-      if (user) {
-        try {
-          await update(ref(db, `law_firm_admin/${user.uid}`), {
-            pendingPlan: {
-              id: selectedPlan.id,
-              name: selectedPlan.name,
-              duration: selectedPlan.duration,
-              amount: selectedPlan.amount,
-              timestamp: Date.now()
-            }
-          });
-          console.log('Pending plan info stored in Firebase');
-        } catch (dbError) {
-          console.error('Error storing pending plan:', dbError);
-          // Continue anyway - this is not critical
-        }
+      if (!stripe) {
+        throw new Error('Failed to load Stripe');
       }
       
-      // Use the correct endpoint for the Stripe checkout
-      const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, {
+      console.log('Stripe loaded successfully');
+      console.log('Creating checkout session for plan:', selectedPlan);
+      
+      // Create a direct payload for the checkout session
+      const payload = {
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
         success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
         cancel_url: `${window.location.origin}/plans`
-      });
+      };
+      
+      console.log('Checkout payload:', payload);
+      
+      // Make the API call
+      console.log('Calling create-checkout-session endpoint...');
+      const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, payload);
       
       console.log('Checkout session response:', response);
       
+      // Verify the response has session ID
       if (!response.data || !response.data.id) {
+        console.error('Invalid response:', response.data);
         throw new Error('Invalid response from server. Session ID is missing.');
       }
       
-      const { id: sessionId } = response.data;
+      const sessionId = response.data.id;
+      console.log('Session ID received:', sessionId);
       
-      // Update the pending plan with the session ID
-      if (user) {
-        try {
-          await update(ref(db, `law_firm_admin/${user.uid}/pendingPlan`), {
-            checkoutSessionId: sessionId
-          });
-        } catch (updateError) {
-          console.error('Error updating session ID:', updateError);
-          // Continue anyway - this is not critical
-        }
-      }
-      
-      // Redirect to Stripe Checkout
+      // Redirect to Stripe checkout
       console.log('Redirecting to Stripe checkout with session ID:', sessionId);
-      const result = await stripe.redirectToCheckout({
-        sessionId
-      });
+      const { error } = await stripe.redirectToCheckout({ sessionId });
       
-      if (result.error) {
-        console.error('Stripe redirect error:', result.error);
-        throw new Error(result.error.message);
+      if (error) {
+        console.error('Stripe redirect error:', error);
+        throw error;
       }
     } catch (error) {
       console.error('Payment processing error:', error);
-      console.error('Full error details:', error.response || error);
+      
+      // Log detailed error information
+      if (error.response) {
+        // The request was made, but the server responded with an error
+        console.error('Server error details:', {
+          status: error.response.status,
+          headers: error.response.headers,
+          data: error.response.data
+        });
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+      } else {
+        // Something else caused the error
+        console.error('Error details:', error.message);
+      }
       
       // Set a more user-friendly error message
       setError('Unable to process payment at this time. Please try again later.');
@@ -131,6 +130,7 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
           <div className="payment-method-text">
             <h3>Pay with Stripe</h3>
             <p>Secure checkout with credit card, debit card, and more</p>
+            <p><small>Test mode is active - use card number 4242 4242 4242 4242</small></p>
           </div>
         </button>
       </div>
@@ -141,6 +141,17 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
           <span className="error-icon">⚠️</span> {error}
         </div>
       )}
+      
+      <div className="test-mode-info" style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '5px', border: '1px solid #e9ecef' }}>
+        <h4>Test Mode Information</h4>
+        <p>This checkout is in test mode. Use the following test card details:</p>
+        <ul style={{ listStyleType: 'none', padding: '0' }}>
+          <li>Card Number: <code>4242 4242 4242 4242</code></li>
+          <li>Expiration: Any future date (e.g., <code>12/25</code>)</li>
+          <li>CVC: Any 3 digits (e.g., <code>123</code>)</li>
+          <li>ZIP: Any 5 digits (e.g., <code>12345</code>)</li>
+        </ul>
+      </div>
     </div>
   );
 };
