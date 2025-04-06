@@ -7,15 +7,26 @@ import axios from "axios";
 import SubscriptionStatus from "../../components/Subscription/SubscriptionStatus";
 import "../../styles/index.css";
 import { getApiBaseUrl } from '../../utils/apiConfig';
+import Toast from "../../components/UI/Toast";
 
-// Using your existing Stripe key from the document
+// Initialize Stripe with your publishable key
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
 
 // Payment method selection component
-const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
+const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
   const user = auth.currentUser;
+  
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    
+    // Clear toast after 5 seconds
+    setTimeout(() => {
+      setToast(null);
+    }, 5000);
+  };
   
   const handleStripeCheckout = async () => {
     setLoading(true);
@@ -26,8 +37,27 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
       
       console.log('Creating checkout session for plan:', selectedPlan);
       
-      // Call your backend to create a Checkout Session
-      const response = await axios.post(`${getApiBaseUrl()}/subscriptions`, {
+      // First, store plan info in user data for confirmation after payment
+      if (user) {
+        try {
+          await update(ref(db, `law_firm_admin/${user.uid}`), {
+            pendingPlan: {
+              id: selectedPlan.id,
+              name: selectedPlan.name,
+              duration: selectedPlan.duration,
+              amount: selectedPlan.amount,
+              timestamp: Date.now()
+            }
+          });
+          console.log('Pending plan info stored in Firebase');
+        } catch (dbError) {
+          console.error('Error storing pending plan:', dbError);
+          // Continue anyway - this is not critical
+        }
+      }
+      
+      // Use the correct endpoint for the Stripe checkout
+      const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, {
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
@@ -35,33 +65,30 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         cancel_url: `${window.location.origin}/plans`
       });
       
-      console.log('Response status:', response.status);
+      console.log('Checkout session response:', response);
       
-      if (!response.ok && !response.data) {
-        throw new Error(`Server responded with status: ${response.status}`);
+      if (!response.data || !response.data.id) {
+        throw new Error('Invalid response from server. Session ID is missing.');
       }
       
-      const session = response.data;
-      console.log('Received session:', session);
+      const { id: sessionId } = response.data;
       
-      // Store plan info in user data for confirmation after payment
+      // Update the pending plan with the session ID
       if (user) {
-        await update(ref(db, `law_firm_admin/${user.uid}`), {
-          pendingPlan: {
-            id: selectedPlan.id,
-            name: selectedPlan.name,
-            duration: selectedPlan.duration,
-            amount: selectedPlan.amount,
-            checkoutSessionId: session.id,
-            timestamp: Date.now()
-          }
-        });
+        try {
+          await update(ref(db, `law_firm_admin/${user.uid}/pendingPlan`), {
+            checkoutSessionId: sessionId
+          });
+        } catch (updateError) {
+          console.error('Error updating session ID:', updateError);
+          // Continue anyway - this is not critical
+        }
       }
       
       // Redirect to Stripe Checkout
-      console.log('Redirecting to Stripe checkout...');
+      console.log('Redirecting to Stripe checkout with session ID:', sessionId);
       const result = await stripe.redirectToCheckout({
-        sessionId: session.id,
+        sessionId
       });
       
       if (result.error) {
@@ -69,9 +96,12 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         throw new Error(result.error.message);
       }
     } catch (error) {
-      console.error('Detailed error:', error);
-      setError(error.message || 'Something went wrong. Please try again.');
-      showToast && showToast('Payment processing error: ' + error.message, 'error');
+      console.error('Payment processing error:', error);
+      console.error('Full error details:', error.response || error);
+      
+      // Set a more user-friendly error message
+      setError('Unable to process payment at this time. Please try again later.');
+      showToast('Payment processing error. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -79,6 +109,8 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
   
   return (
     <div className="payment-method-container">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      
       <h2>Choose Payment Method</h2>
       <div className="selected-plan-summary">
         <h3>Selected Plan: {selectedPlan.name}</h3>
@@ -104,18 +136,23 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
       </div>
       
       {loading && <div className="loading">Processing your request...</div>}
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">⚠️</span> {error}
+        </div>
+      )}
     </div>
   );
 };
 
-const PlansSubscription = ({ showToast }) => {
+const PlansSubscription = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [plans, setPlans] = useState([]);
   const [fetchError, setFetchError] = useState(null);
+  const [toast, setToast] = useState(null);
   const [subscriptionData, setSubscriptionData] = useState({
     status: 'none',
     endDate: null,
@@ -123,15 +160,24 @@ const PlansSubscription = ({ showToast }) => {
     remainingDays: 0
   });
 
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    
+    // Clear toast after 5 seconds
+    setTimeout(() => {
+      setToast(null);
+    }, 5000);
+  };
+
   // Check for message in location state (from trial expiration redirect)
   useEffect(() => {
     if (location.state?.message) {
-      showToast && showToast(location.state.message, 'warning');
+      showToast(location.state.message, 'warning');
       
       // Clear the message after showing it
       navigate(location.pathname, { replace: true });
     }
-  }, [location, navigate, showToast]);
+  }, [location, navigate]);
 
   // Fetch user subscription status
   useEffect(() => {
@@ -172,36 +218,37 @@ const PlansSubscription = ({ showToast }) => {
     fetchPlans();
   }, []);
 
-  // Function to fetch plans from backend
+  // Function to fetch plans
   const fetchPlans = async () => {
     setLoadingPlan(true);
     setFetchError(null);
     
     try {
-      // Use dynamic API base URL instead of hardcoded localhost
-      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
-      const response = await fetch(`${apiBaseUrl}/plans`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch plans");
+      // First try to get plans from the server
+      try {
+        const response = await axios.get(`${getApiBaseUrl()}/plans`);
+        
+        if (response.data && Array.isArray(response.data)) {
+          // Filter out trial plan if already used or active subscription exists
+          const filteredPlans = response.data.filter(plan => {
+            // Skip trial plan if user already used it or has active subscription
+            if (plan.id === 'plan_trial') {
+              return subscriptionData.status === 'none'; // Only show trial if no subscription
+            }
+            return true;
+          });
+          
+          setPlans(filteredPlans);
+          setLoadingPlan(false);
+          return;
+        }
+      } catch (apiError) {
+        console.error("Error fetching plans from API:", apiError);
+        // Continue to fallback
       }
       
-      const data = await response.json();
-      // Filter out trial plan if already used or active subscription exists
-      const filteredPlans = data.filter(plan => {
-        // Skip trial plan if user already used it or has active subscription
-        if (plan.id === 'plan_trial') {
-          return subscriptionData.status === 'none'; // Only show trial if no subscription
-        }
-        return true;
-      });
-      
-      setPlans(filteredPlans);
-    } catch (error) {
-      console.error("Error fetching plans:", error);
-      setFetchError("");
-      
       // Fallback to static plans if fetching fails
+      console.log("Using fallback static plans");
       setPlans([
         {
           id: "plan_1month",
@@ -228,33 +275,18 @@ const PlansSubscription = ({ showToast }) => {
           description: "Get the best value with a full-year subscription.",
         },
       ]);
+    } catch (error) {
+      console.error("Error in plans fallback:", error);
+      setFetchError("Unable to load subscription plans. Please try again later.");
+      showToast("Error loading plans. Please try again later.", "error");
     } finally {
       setLoadingPlan(false);
     }
   };
 
-  const handleSelectPlan = async (plan) => {
-    setLoadingPlan(true);
-    
-    try {
-      // Use dynamic API base URL instead of hardcoded localhost
-      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
-      const response = await fetch(`${apiBaseUrl}/plans`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch plans");
-      }
-      
-      const updatedPlan = await response.json();
-      setSelectedPlan(updatedPlan);
-    } catch (error) {
-      console.error("Error fetching plan details:", error);
-      // If fetch fails, use the plan data we already have
-      setSelectedPlan(plan);
-      showToast && showToast("Couldn't fetch the latest plan details. Using cached data.", "warning");
-    } finally {
-      setLoadingPlan(false);
-    }
+  const handleSelectPlan = (plan) => {
+    console.log("Selected plan:", plan);
+    setSelectedPlan(plan);
   };
 
   const handleCancelPayment = () => {
@@ -263,6 +295,8 @@ const PlansSubscription = ({ showToast }) => {
 
   return (
     <div className="plans-container">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      
       {loadingPlan ? (
         <div className="loading-container">
           <p>Loading plans...</p>
@@ -299,7 +333,7 @@ const PlansSubscription = ({ showToast }) => {
                     {isRecommended ? "Best Value" : index === 0 ? "Basic" : "Popular"}
                   </span>
                   <h2>{plan.name}</h2>
-                  <p className="price">{plan.price} / period</p>
+                  <p className="price">{plan.price}</p>
                   <p className="description">{plan.description}</p>
                   <button 
                     className="subscribe-btn" 
@@ -333,7 +367,6 @@ const PlansSubscription = ({ showToast }) => {
         <PaymentMethodSelector
           selectedPlan={selectedPlan}
           onCancel={handleCancelPayment}
-          showToast={showToast}
         />
       )}
     </div>
