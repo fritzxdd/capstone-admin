@@ -7,34 +7,24 @@ import axios from "axios";
 import SubscriptionStatus from "../../components/Subscription/SubscriptionStatus";
 import "../../styles/index.css";
 import { getApiBaseUrl } from '../../utils/apiConfig';
-import Toast from "../../components/UI/Toast";
 
-// Initialize Stripe with your publishable key - ensure this is the test mode key
+// Using your existing Stripe key from the document
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
 
 // Payment method selection component
+// client/src/pages/Payments/PlansSubscription.jsx - PaymentMethodSelector component
+
 const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [toast, setToast] = useState(null);
   const user = auth.currentUser;
-  
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-    
-    // Clear toast after 5 seconds
-    setTimeout(() => {
-      setToast(null);
-    }, 5000);
-  };
   
   const handleStripeCheckout = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Log to confirm we're in the handler
-      console.log('Starting Stripe checkout process...');
+      console.log('Starting Stripe checkout process with plan:', selectedPlan);
       
       // Load Stripe
       const stripe = await stripePromise;
@@ -42,37 +32,35 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
         throw new Error('Failed to load Stripe');
       }
       
-      console.log('Stripe loaded successfully');
-      console.log('Creating checkout session for plan:', selectedPlan);
-      
-      // Create a direct payload for the checkout session
+      // Create a simpler payload - focusing only on essential fields
       const payload = {
-        planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
-        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
+        success_url: `${window.location.origin}/payment-success`,
         cancel_url: `${window.location.origin}/plans`
       };
       
-      console.log('Checkout payload:', payload);
+      console.log('Sending checkout request with payload:', payload);
       
-      // Make the API call
-      console.log('Calling create-checkout-session endpoint...');
-      const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, payload);
+      // Use absolute URL to eliminate any path resolution issues
+      const apiBaseUrl = process.env.NODE_ENV === 'production' 
+        ? '/api' 
+        : 'http://localhost:5000';
+      
+      const response = await axios.post(`${apiBaseUrl}/create-checkout-session`, payload);
       
       console.log('Checkout session response:', response);
       
-      // Verify the response has session ID
       if (!response.data || !response.data.id) {
-        console.error('Invalid response:', response.data);
+        console.error('Invalid response data:', response.data);
         throw new Error('Invalid response from server. Session ID is missing.');
       }
       
       const sessionId = response.data.id;
-      console.log('Session ID received:', sessionId);
+      console.log('Received session ID:', sessionId);
       
-      // Redirect to Stripe checkout
-      console.log('Redirecting to Stripe checkout with session ID:', sessionId);
+      // Redirect to the checkout page
+      console.log('Redirecting to Stripe checkout...');
       const { error } = await stripe.redirectToCheckout({ sessionId });
       
       if (error) {
@@ -84,23 +72,13 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
       
       // Log detailed error information
       if (error.response) {
-        // The request was made, but the server responded with an error
-        console.error('Server error details:', {
+        console.error('Server error response:', {
           status: error.response.status,
-          headers: error.response.headers,
           data: error.response.data
         });
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('No response received:', error.request);
-      } else {
-        // Something else caused the error
-        console.error('Error details:', error.message);
       }
       
-      // Set a more user-friendly error message
       setError('Unable to process payment at this time. Please try again later.');
-      showToast('Payment processing error. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -108,8 +86,6 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   
   return (
     <div className="payment-method-container">
-      {toast && <Toast message={toast.message} type={toast.type} />}
-      
       <h2>Choose Payment Method</h2>
       <div className="selected-plan-summary">
         <h3>Selected Plan: {selectedPlan.name}</h3>
@@ -130,7 +106,7 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
           <div className="payment-method-text">
             <h3>Pay with Stripe</h3>
             <p>Secure checkout with credit card, debit card, and more</p>
-            <p><small>Test mode is active - use card number 4242 4242 4242 4242</small></p>
+            <p>Test mode is active - use card number 4242 4242 4242 4242</p>
           </div>
         </button>
       </div>
@@ -142,10 +118,10 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
         </div>
       )}
       
-      <div className="test-mode-info" style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '5px', border: '1px solid #e9ecef' }}>
+      <div className="test-mode-info">
         <h4>Test Mode Information</h4>
         <p>This checkout is in test mode. Use the following test card details:</p>
-        <ul style={{ listStyleType: 'none', padding: '0' }}>
+        <ul>
           <li>Card Number: <code>4242 4242 4242 4242</code></li>
           <li>Expiration: Any future date (e.g., <code>12/25</code>)</li>
           <li>CVC: Any 3 digits (e.g., <code>123</code>)</li>
@@ -156,14 +132,13 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   );
 };
 
-const PlansSubscription = () => {
+const PlansSubscription = ({ showToast }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [plans, setPlans] = useState([]);
   const [fetchError, setFetchError] = useState(null);
-  const [toast, setToast] = useState(null);
   const [subscriptionData, setSubscriptionData] = useState({
     status: 'none',
     endDate: null,
@@ -171,24 +146,15 @@ const PlansSubscription = () => {
     remainingDays: 0
   });
 
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-    
-    // Clear toast after 5 seconds
-    setTimeout(() => {
-      setToast(null);
-    }, 5000);
-  };
-
   // Check for message in location state (from trial expiration redirect)
   useEffect(() => {
     if (location.state?.message) {
-      showToast(location.state.message, 'warning');
+      showToast && showToast(location.state.message, 'warning');
       
       // Clear the message after showing it
       navigate(location.pathname, { replace: true });
     }
-  }, [location, navigate]);
+  }, [location, navigate, showToast]);
 
   // Fetch user subscription status
   useEffect(() => {
@@ -229,37 +195,36 @@ const PlansSubscription = () => {
     fetchPlans();
   }, []);
 
-  // Function to fetch plans
+  // Function to fetch plans from backend
   const fetchPlans = async () => {
     setLoadingPlan(true);
     setFetchError(null);
     
     try {
-      // First try to get plans from the server
-      try {
-        const response = await axios.get(`${getApiBaseUrl()}/plans`);
-        
-        if (response.data && Array.isArray(response.data)) {
-          // Filter out trial plan if already used or active subscription exists
-          const filteredPlans = response.data.filter(plan => {
-            // Skip trial plan if user already used it or has active subscription
-            if (plan.id === 'plan_trial') {
-              return subscriptionData.status === 'none'; // Only show trial if no subscription
-            }
-            return true;
-          });
-          
-          setPlans(filteredPlans);
-          setLoadingPlan(false);
-          return;
-        }
-      } catch (apiError) {
-        console.error("Error fetching plans from API:", apiError);
-        // Continue to fallback
+      // Use dynamic API base URL instead of hardcoded localhost
+      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+      const response = await fetch(`${apiBaseUrl}/plans`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch plans");
       }
       
+      const data = await response.json();
+      // Filter out trial plan if already used or active subscription exists
+      const filteredPlans = data.filter(plan => {
+        // Skip trial plan if user already used it or has active subscription
+        if (plan.id === 'plan_trial') {
+          return subscriptionData.status === 'none'; // Only show trial if no subscription
+        }
+        return true;
+      });
+      
+      setPlans(filteredPlans);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      setFetchError("");
+      
       // Fallback to static plans if fetching fails
-      console.log("Using fallback static plans");
       setPlans([
         {
           id: "plan_1month",
@@ -286,18 +251,33 @@ const PlansSubscription = () => {
           description: "Get the best value with a full-year subscription.",
         },
       ]);
-    } catch (error) {
-      console.error("Error in plans fallback:", error);
-      setFetchError("Unable to load subscription plans. Please try again later.");
-      showToast("Error loading plans. Please try again later.", "error");
     } finally {
       setLoadingPlan(false);
     }
   };
 
-  const handleSelectPlan = (plan) => {
-    console.log("Selected plan:", plan);
-    setSelectedPlan(plan);
+  const handleSelectPlan = async (plan) => {
+    setLoadingPlan(true);
+    
+    try {
+      // Use dynamic API base URL instead of hardcoded localhost
+      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+      const response = await fetch(`${apiBaseUrl}/plans`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch plans");
+      }
+      
+      const updatedPlan = await response.json();
+      setSelectedPlan(updatedPlan);
+    } catch (error) {
+      console.error("Error fetching plan details:", error);
+      // If fetch fails, use the plan data we already have
+      setSelectedPlan(plan);
+      showToast && showToast("Couldn't fetch the latest plan details. Using cached data.", "warning");
+    } finally {
+      setLoadingPlan(false);
+    }
   };
 
   const handleCancelPayment = () => {
@@ -306,8 +286,6 @@ const PlansSubscription = () => {
 
   return (
     <div className="plans-container">
-      {toast && <Toast message={toast.message} type={toast.type} />}
-      
       {loadingPlan ? (
         <div className="loading-container">
           <p>Loading plans...</p>
@@ -344,7 +322,7 @@ const PlansSubscription = () => {
                     {isRecommended ? "Best Value" : index === 0 ? "Basic" : "Popular"}
                   </span>
                   <h2>{plan.name}</h2>
-                  <p className="price">{plan.price}</p>
+                  <p className="price">{plan.price} / period</p>
                   <p className="description">{plan.description}</p>
                   <button 
                     className="subscribe-btn" 
@@ -378,6 +356,7 @@ const PlansSubscription = () => {
         <PaymentMethodSelector
           selectedPlan={selectedPlan}
           onCancel={handleCancelPayment}
+          showToast={showToast}
         />
       )}
     </div>
