@@ -12,9 +12,7 @@ import { getApiBaseUrl } from '../../utils/apiConfig';
 const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
 
 // Payment method selection component
-// client/src/pages/Payments/PlansSubscription.jsx - PaymentMethodSelector component
-
-const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
+const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const user = auth.currentUser;
@@ -24,61 +22,56 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
     setError(null);
     
     try {
-      console.log('Starting Stripe checkout process with plan:', selectedPlan);
-      
-      // Load Stripe
       const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error('Failed to load Stripe');
-      }
       
-      // Create a simpler payload - focusing only on essential fields
-      const payload = {
+      console.log('Creating checkout session for plan:', selectedPlan);
+      
+      // Call your backend to create a Checkout Session
+      const response = await axios.post(`${getApiBaseUrl()}/subscriptions`, {
+        planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
-        success_url: `${window.location.origin}/payment-success`,
+        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
         cancel_url: `${window.location.origin}/plans`
-      };
+      });
       
-      console.log('Sending checkout request with payload:', payload);
+      console.log('Response status:', response.status);
       
-      // Use absolute URL to eliminate any path resolution issues
-      const apiBaseUrl = process.env.NODE_ENV === 'production' 
-        ? '/api' 
-        : 'http://localhost:5000';
-      
-      const response = await axios.post(`${apiBaseUrl}/create-checkout-session`, payload);
-      
-      console.log('Checkout session response:', response);
-      
-      if (!response.data || !response.data.id) {
-        console.error('Invalid response data:', response.data);
-        throw new Error('Invalid response from server. Session ID is missing.');
+      if (!response.ok && !response.data) {
+        throw new Error(`Server responded with status: ${response.status}`);
       }
       
-      const sessionId = response.data.id;
-      console.log('Received session ID:', sessionId);
+      const session = response.data;
+      console.log('Received session:', session);
       
-      // Redirect to the checkout page
-      console.log('Redirecting to Stripe checkout...');
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-      
-      if (error) {
-        console.error('Stripe redirect error:', error);
-        throw error;
-      }
-    } catch (error) {
-      console.error('Payment processing error:', error);
-      
-      // Log detailed error information
-      if (error.response) {
-        console.error('Server error response:', {
-          status: error.response.status,
-          data: error.response.data
+      // Store plan info in user data for confirmation after payment
+      if (user) {
+        await update(ref(db, `law_firm_admin/${user.uid}`), {
+          pendingPlan: {
+            id: selectedPlan.id,
+            name: selectedPlan.name,
+            duration: selectedPlan.duration,
+            amount: selectedPlan.amount,
+            checkoutSessionId: session.id,
+            timestamp: Date.now()
+          }
         });
       }
       
-      setError('Unable to process payment at this time. Please try again later.');
+      // Redirect to Stripe Checkout
+      console.log('Redirecting to Stripe checkout...');
+      const result = await stripe.redirectToCheckout({
+        sessionId: session.id,
+      });
+      
+      if (result.error) {
+        console.error('Stripe redirect error:', result.error);
+        throw new Error(result.error.message);
+      }
+    } catch (error) {
+      console.error('Detailed error:', error);
+      setError(error.message || 'Something went wrong. Please try again.');
+      showToast && showToast('Payment processing error: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -106,28 +99,12 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
           <div className="payment-method-text">
             <h3>Pay with Stripe</h3>
             <p>Secure checkout with credit card, debit card, and more</p>
-            <p>Test mode is active - use card number 4242 4242 4242 4242</p>
           </div>
         </button>
       </div>
       
       {loading && <div className="loading">Processing your request...</div>}
-      {error && (
-        <div className="error-message">
-          <span className="error-icon">⚠️</span> {error}
-        </div>
-      )}
-      
-      <div className="test-mode-info">
-        <h4>Test Mode Information</h4>
-        <p>This checkout is in test mode. Use the following test card details:</p>
-        <ul>
-          <li>Card Number: <code>4242 4242 4242 4242</code></li>
-          <li>Expiration: Any future date (e.g., <code>12/25</code>)</li>
-          <li>CVC: Any 3 digits (e.g., <code>123</code>)</li>
-          <li>ZIP: Any 5 digits (e.g., <code>12345</code>)</li>
-        </ul>
-      </div>
+      {error && <div className="error-message">{error}</div>}
     </div>
   );
 };
