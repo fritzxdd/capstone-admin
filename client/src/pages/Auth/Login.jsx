@@ -12,43 +12,30 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState("");
   
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setDebugInfo(""); // Clear previous debug info
     setLoading(true);
   
     try {
-      setDebugInfo(prev => prev + "Attempting to sign in with Firebase Auth...\n");
-      
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      setDebugInfo(prev => prev + `Authentication successful for user: ${user.uid}\n`);
-      
       const adminRef = ref(db, "law_firm_admin/" + user.uid);
-      setDebugInfo(prev => prev + `Checking if user is admin at path: law_firm_admin/${user.uid}\n`);
       
       try {
         const snapshot = await get(adminRef);
         
         if (snapshot.exists()) {
-          setDebugInfo(prev => prev + "Admin data found. User is authorized.\n");
           const adminData = snapshot.val();
-          
-          // Log the admin data to debug
-          setDebugInfo(prev => prev + `Admin data found: ${JSON.stringify(adminData).substring(0, 100)}...\n`);
           
           if (rememberMe) {
             localStorage.setItem("adminData", JSON.stringify(adminData));
-            setDebugInfo(prev => prev + "Storing admin data in localStorage\n");
           } else {
             sessionStorage.setItem("adminData", JSON.stringify(adminData));
-            setDebugInfo(prev => prev + "Storing admin data in sessionStorage\n");
           }
           
           // Track successful login event
@@ -57,10 +44,7 @@ const Login = () => {
               method: "email_password",
               admin_id: user.uid
             });
-            setDebugInfo(prev => prev + "Logged login event to analytics\n");
           }
-          
-          setDebugInfo(prev => prev + "Navigating to dashboard...\n");
           
           // Add a small delay to make sure storage operations complete
           setTimeout(() => {
@@ -68,7 +52,6 @@ const Login = () => {
           }, 500);
           
         } else {
-          setDebugInfo(prev => prev + "⚠️ NO ADMIN DATA FOUND for this user. Access denied.\n");
           setError("Access Denied: You are not an admin!");
           await signOut(auth);
           
@@ -79,7 +62,6 @@ const Login = () => {
           }
         }
       } catch (dbError) {
-        setDebugInfo(prev => prev + `⚠️ Error fetching admin data: ${dbError.message}\n`);
         setError(`Database error: ${dbError.message}`);
         
         if (analytics) {
@@ -90,7 +72,6 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setDebugInfo(prev => prev + `⚠️ Authentication error: ${error.code} - ${error.message}\n`);
       
       setError(`${error.message.includes("auth/invalid-credential") ? 
         "Invalid email or password. Please try again." : 
@@ -120,24 +101,6 @@ const Login = () => {
           {error && (
             <div className="error-message">
               {error}
-            </div>
-          )}
-          
-          {/* Debug information - only visible during troubleshooting */}
-          {debugInfo && (
-            <div className="debug-info" style={{
-              backgroundColor: "#f8f9fa",
-              border: "1px solid #dee2e6",
-              borderRadius: "4px",
-              padding: "10px",
-              marginBottom: "15px",
-              fontSize: "12px",
-              whiteSpace: "pre-line",
-              fontFamily: "monospace",
-              overflowX: "auto"
-            }}>
-              <strong>Debug Info:</strong><br/>
-              {debugInfo}
             </div>
           )}
           
