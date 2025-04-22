@@ -1,23 +1,17 @@
 {
-  "version": 2,
-  "buildCommand": "cd client && npm install && npm run build",
-  "outputDirectory": "client/dist",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/(.*)", "destination": "/client/dist/$1" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/(.*\\.[^/]*)", "dest": "/client/dist/$1" },
-    { "src": "/(.*)", "dest": "/client/dist/index.html" }
-  ],
-  "functions": {
-    "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 10
+    "version": 2,
+    "buildCommand": "cd client && npm install && npm run build",
+    "outputDirectory": "client/dist",
+    "rewrites": [
+      { "source": "/api/(.*)", "destination": "/api" }
+    ],
+    "functions": {
+      "api/index.js": {
+        "memory": 1024,
+        "maxDuration": 10
+      }
+    },
+    "env": {
+      "FIREBASE_DATABASE_URL": "https://weassist-f2a77-default-rtdb.firebaseio.com"
     }
-  },
-  "env": {
-    "FIREBASE_DATABASE_URL": "https://weassist-f2a77-default-rtdb.firebaseio.com"
   }
-}
