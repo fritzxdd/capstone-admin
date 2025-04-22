@@ -17,65 +17,67 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
   const [error, setError] = useState(null);
   const user = auth.currentUser;
   
-  const handleStripeCheckout = async () => {
-    setLoading(true);
-    setError(null);
+  // Update this code in client/src/pages/Payments/PlansSubscription.jsx
+
+const handleStripeCheckout = async () => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const stripe = await stripePromise;
     
-    try {
-      const stripe = await stripePromise;
-      
-      console.log('Creating checkout session for plan:', selectedPlan);
-      
-      // Call your backend to create a Checkout Session
-      const response = await axios.post(`${getApiBaseUrl()}/subscriptions`, {
-        planId: selectedPlan.id,
-        planName: selectedPlan.name,
-        amount: selectedPlan.amount,
-        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
-        cancel_url: `${window.location.origin}/plans`
-      });
-      
-      console.log('Response status:', response.status);
-      
-      if (!response.ok && !response.data) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-      
-      const session = response.data;
-      console.log('Received session:', session);
-      
-      // Store plan info in user data for confirmation after payment
-      if (user) {
-        await update(ref(db, `law_firm_admin/${user.uid}`), {
-          pendingPlan: {
-            id: selectedPlan.id,
-            name: selectedPlan.name,
-            duration: selectedPlan.duration,
-            amount: selectedPlan.amount,
-            checkoutSessionId: session.id,
-            timestamp: Date.now()
-          }
-        });
-      }
-      
-      // Redirect to Stripe Checkout
-      console.log('Redirecting to Stripe checkout...');
-      const result = await stripe.redirectToCheckout({
-        sessionId: session.id,
-      });
-      
-      if (result.error) {
-        console.error('Stripe redirect error:', result.error);
-        throw new Error(result.error.message);
-      }
-    } catch (error) {
-      console.error('Detailed error:', error);
-      setError(error.message || 'Something went wrong. Please try again.');
-      showToast && showToast('Payment processing error: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
+    console.log('Creating checkout session for plan:', selectedPlan);
+    
+    // FIX: Use correct endpoint and ensure proper data structure
+    const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, {
+      planId: selectedPlan.id,
+      planName: selectedPlan.name,
+      amount: selectedPlan.amount,
+      success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
+      cancel_url: `${window.location.origin}/plans`
+    });
+    
+    console.log('Response:', response);
+    
+    if (!response.data) {
+      throw new Error(`Failed to create checkout session`);
     }
-  };
+    
+    const session = response.data;
+    console.log('Received session:', session);
+    
+    // Store plan info in user data for confirmation after payment
+    if (user) {
+      await update(ref(db, `law_firm_admin/${user.uid}`), {
+        pendingPlan: {
+          id: selectedPlan.id,
+          name: selectedPlan.name,
+          duration: selectedPlan.duration,
+          amount: selectedPlan.amount,
+          checkoutSessionId: session.id,
+          timestamp: Date.now()
+        }
+      });
+    }
+    
+    // Redirect to Stripe Checkout
+    console.log('Redirecting to Stripe checkout...');
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+    
+    if (result.error) {
+      console.error('Stripe redirect error:', result.error);
+      throw new Error(result.error.message);
+    }
+  } catch (error) {
+    console.error('Detailed error:', error);
+    setError(error.message || 'Something went wrong. Please try again.');
+    showToast && showToast('Payment processing error: ' + error.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
   
   return (
     <div className="payment-method-container">

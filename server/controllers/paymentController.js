@@ -1,10 +1,25 @@
 // controllers/paymentController.js
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Update this in server/controllers/paymentController.js
+
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { planId, planName, amount, success_url, cancel_url } = req.body;
     
+    if (!planId || !planName || !amount) {
+      return res.status(400).json({ error: 'Missing required payment information' });
+    }
+    
+    // Make sure Stripe secret key is properly set
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not configured');
+      return res.status(500).json({ error: 'Payment system not properly configured' });
+    }
+    
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    
+    // Create a checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -14,7 +29,7 @@ exports.createCheckoutSession = async (req, res) => {
             product_data: {
               name: planName,
             },
-            unit_amount: amount * 100, // Amount in cents
+            unit_amount: amount * 100, // Convert to cents
           },
           quantity: 1,
         },
@@ -24,9 +39,10 @@ exports.createCheckoutSession = async (req, res) => {
       cancel_url: cancel_url || `${process.env.CLIENT_URL}/plans`,
     });
     
+    // Return the session ID
     res.json({ id: session.id });
   } catch (error) {
-    console.error('Stripe error:', error);
+    console.error('Stripe checkout error:', error);
     res.status(500).json({ error: error.message });
   }
 };
