@@ -5,17 +5,33 @@ import { auth, db } from "../../services/firebase";
 import { ref, onValue, update } from "firebase/database";
 import axios from "axios";
 import SubscriptionStatus from "../../components/Subscription/SubscriptionStatus";
+import Toast from "../../components/UI/Toast";
 import "../../styles/index.css";
 import { getApiBaseUrl } from '../../utils/apiConfig';
 
-// Using your existing Stripe key from the document
-const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe");
+// Initialize Stripe (but don't reject the Promise if it fails)
+const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQkfgW814lspsx14jcUk61Is7sq6uS7IAHSrdHzOWDCsZPRgDj5YFi00kewOXwwe")
+  .catch(err => {
+    console.error("Stripe initialization error:", err);
+    return null;
+  });
 
 // Payment method selection component
-const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
+const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
   const user = auth.currentUser;
+  
+  // Toast notification helper
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    
+    // Clear toast after 5 seconds
+    setTimeout(() => {
+      setToast(null);
+    }, 5000);
+  };
   
   const handleStripeCheckout = async () => {
     setLoading(true);
@@ -24,33 +40,50 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
     try {
       const stripe = await stripePromise;
       
+      if (!stripe) {
+        throw new Error("Stripe failed to initialize. Please try again later.");
+      }
+      
       // Log the data being sent
       const paymentData = {
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: selectedPlan.amount,
-        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
+        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}&plan=${selectedPlan.id}`, 
         cancel_url: `${window.location.origin}/plans`
       };
       console.log('Creating checkout session for plan:', paymentData);
       
-      // Call your backend to create a Checkout Session - use the exact route as seen in network tab
-      const response = await axios.post(`/api/create-checkout-session`, paymentData);
+      // Get the API base URL
+      const apiBaseUrl = getApiBaseUrl();
+      
+      // Call your backend to create a Checkout Session - use the exact URL path
+      const response = await axios.post(`${apiBaseUrl}/create-checkout-session`, paymentData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
       console.log('Stripe response:', response);
       
       // Store plan info in user data for confirmation after payment
       if (user && response.data && response.data.id) {
-        await update(ref(db, `law_firm_admin/${user.uid}`), {
-          pendingPlan: {
-            id: selectedPlan.id,
-            name: selectedPlan.name,
-            duration: selectedPlan.duration,
-            amount: selectedPlan.amount,
-            checkoutSessionId: response.data.id,
-            timestamp: Date.now()
-          }
-        });
+        try {
+          await update(ref(db, `law_firm_admin/${user.uid}`), {
+            pendingPlan: {
+              id: selectedPlan.id,
+              name: selectedPlan.name,
+              duration: selectedPlan.duration,
+              amount: selectedPlan.amount,
+              checkoutSessionId: response.data.id,
+              timestamp: Date.now()
+            }
+          });
+          console.log("Pending plan data saved to user profile");
+        } catch (dbError) {
+          console.error("Failed to save pending plan data:", dbError);
+          // Continue to Stripe checkout even if DB update fails
+        }
       }
       
       // Redirect to Stripe Checkout
@@ -70,8 +103,15 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         status: error.response?.status,
         statusText: error.response?.statusText
       });
-      setError(error.message || 'Something went wrong. Please try again.');
-      showToast && showToast('Payment processing error: ' + error.message, 'error');
+      
+      // Set error message based on context
+      if (error.response?.status === 500) {
+        setError("Payment service is currently unavailable. Please try again later.");
+      } else {
+        setError(error.message || 'Something went wrong. Please try again.');
+      }
+      
+      showToast('Payment processing error. Please try again later.', 'error');
     } finally {
       setLoading(false);
     }
@@ -79,6 +119,8 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
   
   return (
     <div className="payment-method-container">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      
       <h2>Choose Payment Method</h2>
       <div className="selected-plan-summary">
         <h3>Selected Plan: {selectedPlan.name}</h3>
@@ -87,6 +129,8 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         <button className="change-plan-btn" onClick={onCancel}>Change Plan</button>
       </div>
       
+      {error && <div className="error-message">{error}</div>}
+      
       <div className="payment-methods">
         <button 
           className="payment-method-btn stripe-btn" 
@@ -94,7 +138,10 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
           disabled={loading}
         >
           <div className="payment-method-icon">
-            <img src="https://cdn.jsdelivr.net/gh/stripe-samples/checkout-one-time-payments/client/html/images/stripe.svg" alt="Stripe" />
+            <img 
+              src="https://cdn.jsdelivr.net/gh/stripe-samples/checkout-one-time-payments/client/html/images/stripe.svg" 
+              alt="Stripe" 
+            />
           </div>
           <div className="payment-method-text">
             <h3>Pay with Stripe</h3>
@@ -103,20 +150,27 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
         </button>
       </div>
       
-      {loading && <div className="loading">Processing your request...</div>}
-      {error && <div className="error-message">{error}</div>}
+      {loading && <div className="loading-spinner">
+        <div className="spinner"></div>
+        <p className="loading-message">Processing your request...</p>
+      </div>}
+      
+      <div className="terms-note">
+        By proceeding with payment, you agree to our Terms of Service and Privacy Policy.
+      </div>
     </div>
   );
 };
 
-// Rest of your PlansSubscription component stays the same
-const PlansSubscription = ({ showToast }) => {
+// Main PlansSubscription component
+const PlansSubscription = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [plans, setPlans] = useState([]);
   const [fetchError, setFetchError] = useState(null);
+  const [toast, setToast] = useState(null);
   const [subscriptionData, setSubscriptionData] = useState({
     status: 'none',
     endDate: null,
@@ -124,15 +178,25 @@ const PlansSubscription = ({ showToast }) => {
     remainingDays: 0
   });
 
+  // Toast notification helper
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    
+    // Clear toast after 5 seconds
+    setTimeout(() => {
+      setToast(null);
+    }, 5000);
+  };
+
   // Check for message in location state (from trial expiration redirect)
   useEffect(() => {
     if (location.state?.message) {
-      showToast && showToast(location.state.message, 'warning');
+      showToast(location.state.message, 'warning');
       
       // Clear the message after showing it
       navigate(location.pathname, { replace: true });
     }
-  }, [location, navigate, showToast]);
+  }, [location, navigate]);
 
   // Fetch user subscription status
   useEffect(() => {
@@ -179,14 +243,25 @@ const PlansSubscription = ({ showToast }) => {
     setFetchError(null);
     
     try {
+      const apiBaseUrl = getApiBaseUrl();
+      console.log(`Fetching plans from: ${apiBaseUrl}/plans`);
+      
       // For Vercel deployment, paths need to be relative
-      const response = await fetch('/api/plans');
+      const response = await fetch(`${apiBaseUrl}/plans`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
-        throw new Error("Failed to fetch plans");
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch plans: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
+      
       // Filter out trial plan if already used or active subscription exists
       const filteredPlans = data.filter(plan => {
         // Skip trial plan if user already used it or has active subscription
@@ -199,7 +274,7 @@ const PlansSubscription = ({ showToast }) => {
       setPlans(filteredPlans);
     } catch (error) {
       console.error("Error fetching plans:", error);
-      setFetchError("");
+      setFetchError("Unable to load subscription plans. Using default plans instead.");
       
       // Fallback to static plans if fetching fails
       setPlans([
@@ -243,9 +318,12 @@ const PlansSubscription = ({ showToast }) => {
 
   return (
     <div className="plans-container">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      
       {loadingPlan ? (
-        <div className="loading-container">
-          <p>Loading plans...</p>
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p className="loading-message">Loading plans...</p>
         </div>
       ) : !selectedPlan ? (
         <>

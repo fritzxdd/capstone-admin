@@ -1,5 +1,7 @@
 // server/controllers/paymentController.js
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const admin = require('firebase-admin');
+const db = admin.database();
+const stripeConfig = require('../config/stripeConfig');
 
 exports.createCheckoutSession = async (req, res) => {
   try {
@@ -18,60 +20,117 @@ exports.createCheckoutSession = async (req, res) => {
       return res.status(400).json({ error: 'Missing required payment information' });
     }
     
-    // Make sure Stripe secret key is properly set
-    if (!process.env.STRIPE_SECRET_KEY) {
-      console.error('STRIPE_SECRET_KEY is not configured');
-      return res.status(500).json({ error: 'Payment system not properly configured' });
-    }
-    
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'php',
-            product_data: {
-              name: planName,
-            },
-            unit_amount: amount * 100, // Convert to cents
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: success_url || `${process.env.CLIENT_URL || 'https://capstone-admin-beige.vercel.app'}/payment-success?payment_id={CHECKOUT_SESSION_ID}&plan=${planName}&amount=${amount}&status=success`,
-      cancel_url: cancel_url || `${process.env.CLIENT_URL || 'https://capstone-admin-beige.vercel.app'}/plans`,
+    // Create checkout session using our robust stripe configuration
+    const result = await stripeConfig.createCheckoutSession({
+      amount,
+      productName: planName,
+      successUrl: success_url || `${process.env.CLIENT_URL || 'https://capstone-admin-beige.vercel.app'}/payment-success?payment_id={CHECKOUT_SESSION_ID}&plan=${planId}&amount=${amount}&status=success`,
+      cancelUrl: cancel_url || `${process.env.CLIENT_URL || 'https://capstone-admin-beige.vercel.app'}/plans`,
+      metadata: {
+        planId,
+        planName
+      }
     });
     
-    console.log('Stripe session created successfully:', session.id);
+    if (!result.success) {
+      console.error('Stripe API error:', result.error);
+      return res.status(500).json({ 
+        error: 'Stripe API error', 
+        details: result.error.message,
+        code: result.error.code || result.error.type
+      });
+    }
+    
+    console.log('Stripe session created successfully:', result.session.id);
     
     // Return the session ID
-    res.status(200).json({ id: session.id });
+    res.status(200).json({ id: result.session.id });
   } catch (error) {
-    console.error('Stripe checkout error:', error.message);
-    if (error.type) {
-      console.error('Stripe error type:', error.type);
-    }
-    res.status(500).json({ error: error.message });
+    console.error('Server error in checkout process:', error);
+    res.status(500).json({ error: 'Server error processing payment request' });
   }
 };
 
 exports.verifyPayment = async (req, res) => {
   try {
-    const { payment_id } = req.query;
+    const { payment_id, userId, plan } = req.query;
     
     if (!payment_id) {
       return res.status(400).json({ error: 'Payment ID is required' });
     }
     
-    const session = await stripe.checkout.sessions.retrieve(payment_id);
+    // Retrieve session using robust stripe configuration
+    const result = await stripeConfig.retrieveSession(payment_id);
+    
+    if (!result.success) {
+      console.error('Stripe verification error:', result.error);
+      return res.status(500).json({ 
+        error: 'Stripe verification error', 
+        details: result.error.message 
+      });
+    }
+    
+    const session = result.session;
+    
+    // If payment was successful and we have a userId, update subscription
+    if (session.payment_status === 'paid' && userId && plan) {
+      try {
+        // Get plan details
+        const plansRef = db.ref('plans');
+        const plansSnapshot = await plansRef.once('value');
+        const plans = plansSnapshot.val();
+        
+        const planData = plans && plans[plan] ? plans[plan] : null;
+        
+        if (planData) {
+          // Calculate subscription end date
+          const startDate = new Date();
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + (planData.duration || 30));
+          
+          // Update user subscription data
+          const userRef = db.ref(`law_firm_admin/${userId}`);
+          await userRef.update({
+            subscriptionStatus: 'active',
+            subscriptionEndDate: endDate.getTime(),
+            isTrial: false,
+            currentPlan: plan,
+            paymentId: payment_id,
+            lastPaymentDate: startDate.getTime()
+          });
+          
+          // Also create a subscription record
+          const subscriptionRef = db.ref('subscriptions').push();
+          await subscriptionRef.set({
+            userId,
+            planId: plan,
+            startDate: startDate.getTime(),
+            endDate: endDate.getTime(),
+            status: 'active',
+            isTrial: false,
+            paymentId: payment_id,
+            createdAt: Date.now()
+          });
+          
+          // Update user record with subscription reference
+          await userRef.update({
+            currentSubscription: subscriptionRef.key
+          });
+          
+          console.log(`Subscription updated successfully for user ${userId}, plan ${plan}`);
+        }
+      } catch (dbError) {
+        console.error('Database update error:', dbError);
+        // Continue with verification response even if DB update fails
+      }
+    }
     
     res.status(200).json({
       verified: session.payment_status === 'paid',
       session
     });
   } catch (error) {
-    console.error('Verification error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Server error in verification process:', error);
+    res.status(500).json({ error: 'Server error during payment verification' });
   }
 };
