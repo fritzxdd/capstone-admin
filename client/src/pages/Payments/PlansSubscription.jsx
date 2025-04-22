@@ -17,67 +17,65 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel, showToast }) => {
   const [error, setError] = useState(null);
   const user = auth.currentUser;
   
-  // Update this code in client/src/pages/Payments/PlansSubscription.jsx
-
-const handleStripeCheckout = async () => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const stripe = await stripePromise;
+  const handleStripeCheckout = async () => {
+    setLoading(true);
+    setError(null);
     
-    console.log('Creating checkout session for plan:', selectedPlan);
-    
-    // FIX: Use correct endpoint and ensure proper data structure
-    const response = await axios.post(`${getApiBaseUrl()}/create-checkout-session`, {
-      planId: selectedPlan.id,
-      planName: selectedPlan.name,
-      amount: selectedPlan.amount,
-      success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
-      cancel_url: `${window.location.origin}/plans`
-    });
-    
-    console.log('Response:', response);
-    
-    if (!response.data) {
-      throw new Error(`Failed to create checkout session`);
-    }
-    
-    const session = response.data;
-    console.log('Received session:', session);
-    
-    // Store plan info in user data for confirmation after payment
-    if (user) {
-      await update(ref(db, `law_firm_admin/${user.uid}`), {
-        pendingPlan: {
-          id: selectedPlan.id,
-          name: selectedPlan.name,
-          duration: selectedPlan.duration,
-          amount: selectedPlan.amount,
-          checkoutSessionId: session.id,
-          timestamp: Date.now()
-        }
+    try {
+      const stripe = await stripePromise;
+      
+      // Log the data being sent
+      const paymentData = {
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        amount: selectedPlan.amount,
+        success_url: `${window.location.origin}/payment-success?userId=${user?.uid}`, 
+        cancel_url: `${window.location.origin}/plans`
+      };
+      console.log('Creating checkout session for plan:', paymentData);
+      
+      // Call your backend to create a Checkout Session - use the exact route as seen in network tab
+      const response = await axios.post(`/api/create-checkout-session`, paymentData);
+      
+      console.log('Stripe response:', response);
+      
+      // Store plan info in user data for confirmation after payment
+      if (user && response.data && response.data.id) {
+        await update(ref(db, `law_firm_admin/${user.uid}`), {
+          pendingPlan: {
+            id: selectedPlan.id,
+            name: selectedPlan.name,
+            duration: selectedPlan.duration,
+            amount: selectedPlan.amount,
+            checkoutSessionId: response.data.id,
+            timestamp: Date.now()
+          }
+        });
+      }
+      
+      // Redirect to Stripe Checkout
+      console.log('Redirecting to Stripe checkout...');
+      const result = await stripe.redirectToCheckout({
+        sessionId: response.data.id,
       });
+      
+      if (result.error) {
+        console.error('Stripe redirect error:', result.error);
+        throw new Error(result.error.message);
+      }
+    } catch (error) {
+      console.error('Payment error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      setError(error.message || 'Something went wrong. Please try again.');
+      showToast && showToast('Payment processing error: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    
-    // Redirect to Stripe Checkout
-    console.log('Redirecting to Stripe checkout...');
-    const result = await stripe.redirectToCheckout({
-      sessionId: session.id,
-    });
-    
-    if (result.error) {
-      console.error('Stripe redirect error:', result.error);
-      throw new Error(result.error.message);
-    }
-  } catch (error) {
-    console.error('Detailed error:', error);
-    setError(error.message || 'Something went wrong. Please try again.');
-    showToast && showToast('Payment processing error: ' + error.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   
   return (
     <div className="payment-method-container">
@@ -111,6 +109,7 @@ const handleStripeCheckout = async () => {
   );
 };
 
+// Rest of your PlansSubscription component stays the same
 const PlansSubscription = ({ showToast }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -180,9 +179,8 @@ const PlansSubscription = ({ showToast }) => {
     setFetchError(null);
     
     try {
-      // Use dynamic API base URL instead of hardcoded localhost
-      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
-      const response = await fetch(`${apiBaseUrl}/plans`);
+      // For Vercel deployment, paths need to be relative
+      const response = await fetch('/api/plans');
       
       if (!response.ok) {
         throw new Error("Failed to fetch plans");
@@ -235,28 +233,8 @@ const PlansSubscription = ({ showToast }) => {
     }
   };
 
-  const handleSelectPlan = async (plan) => {
-    setLoadingPlan(true);
-    
-    try {
-      // Use dynamic API base URL instead of hardcoded localhost
-      const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
-      const response = await fetch(`${apiBaseUrl}/plans`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch plans");
-      }
-      
-      const updatedPlan = await response.json();
-      setSelectedPlan(updatedPlan);
-    } catch (error) {
-      console.error("Error fetching plan details:", error);
-      // If fetch fails, use the plan data we already have
-      setSelectedPlan(plan);
-      showToast && showToast("Couldn't fetch the latest plan details. Using cached data.", "warning");
-    } finally {
-      setLoadingPlan(false);
-    }
+  const handleSelectPlan = (plan) => {
+    setSelectedPlan(plan);
   };
 
   const handleCancelPayment = () => {
