@@ -1,3 +1,4 @@
+// client/src/utils/apiConfig.js
 export const getApiBaseUrl = () => {
   if (import.meta.env.PROD) {
     return '/api';
