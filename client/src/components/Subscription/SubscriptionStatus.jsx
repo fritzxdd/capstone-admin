@@ -17,7 +17,10 @@ const SubscriptionStatus = () => {
 
   useEffect(() => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const userRef = ref(db, `law_firm_admin/${user.uid}`);
     const unsubscribe = onValue(userRef, (snapshot) => {
@@ -70,12 +73,6 @@ const SubscriptionStatus = () => {
       }
       setLoading(false);
     });
-
-    // Load from localStorage or sessionStorage if available
-    const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
-    if (storedAdmin) {
-      setAdminData(JSON.parse(storedAdmin));
-    }
 
     return () => unsubscribe();
   }, []);
