@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
-import { ref, update, get } from "firebase/database";
+import { ref, update, set, get } from "firebase/database";
 import "../../styles/index.css";
 
 // Simple check mark SVG component
@@ -40,6 +40,7 @@ const PaymentSuccess = () => {
       // Get plan details if possible
       fetchPlanDetails(plan);
     } else {
+      console.warn("Missing required parameters:", { paymentId, plan, userId });
       setLoading(false);
     }
   }, [location]);
@@ -47,32 +48,64 @@ const PaymentSuccess = () => {
   // Update user's subscription status
   const updateSubscriptionStatus = async (userId, planId, paymentId) => {
     try {
-      if (!userId) return;
+      console.log("Updating subscription status for:", { userId, planId, paymentId });
+      
+      if (!userId) {
+        console.error("No userId provided for subscription update");
+        return;
+      }
       
       // Get plan duration
       let duration = 30; // default 1 month
       if (planId === 'plan_6months') duration = 180;
       if (planId === 'plan_1year') duration = 365;
       
+      console.log(`Using duration: ${duration} days for plan ${planId}`);
+      
       // Calculate end date
       const startDate = new Date();
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + duration);
       
-      // Update user data - explicitly mark the trial as ended
-      const userRef = ref(db, `law_firm_admin/${userId}`);
-      await update(userRef, {
+      console.log(`Subscription period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      
+      // Create subscription data object
+      const subscriptionData = {
         subscriptionStatus: 'active',
         subscriptionEndDate: endDate.getTime(),
-        isTrial: false,             // Explicitly set to false
-        trialEnded: true,           // Add this field to indicate trial has ended
-        trialUpgradedTo: planId,    // Record what plan the trial was upgraded to
+        isTrial: false,
+        trialEnded: true,
+        trialUpgradedTo: planId,
         currentPlan: planId,
         paymentId: paymentId,
         lastPaymentDate: startDate.getTime()
-      });
+      };
       
-      console.log("Updated subscription status in Firebase");
+      console.log("Updating user data in Firebase:", subscriptionData);
+      
+      // Update user data
+      const userRef = ref(db, `law_firm_admin/${userId}`);
+      await update(userRef, subscriptionData);
+      
+      // Also create a subscription record for tracking
+      try {
+        const subscriptionRef = ref(db, `subscriptions/${paymentId}`);
+        await set(subscriptionRef, {
+          userId,
+          planId,
+          startDate: startDate.getTime(),
+          endDate: endDate.getTime(),
+          status: 'active',
+          paymentId,
+          createdAt: Date.now()
+        });
+        console.log("Created subscription record");
+      } catch (subError) {
+        console.error("Error creating subscription record:", subError);
+        // Continue even if this fails
+      }
+      
+      console.log("Subscription update completed successfully");
     } catch (error) {
       console.error("Error updating subscription:", error);
       setError("There was an issue updating your subscription status. Please contact support.");
