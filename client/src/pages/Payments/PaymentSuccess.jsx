@@ -45,13 +45,15 @@ const PaymentSuccess = () => {
     }
   }, [location]);
   
-  // In the updateSubscriptionStatus function in PaymentSuccess.jsx
+// Enhanced updateSubscriptionStatus function for PaymentSuccess.jsx
 const updateSubscriptionStatus = async (userId, planId, paymentId) => {
   try {
     console.log("Updating subscription status for:", { userId, planId, paymentId });
     
     if (!userId) {
       console.error("No userId provided for subscription update");
+      setError("User identification error. Please contact support.");
+      setLoading(false);
       return;
     }
     
@@ -129,6 +131,12 @@ const updateSubscriptionStatus = async (userId, planId, paymentId) => {
         createdAt: Date.now()
       });
       console.log("Created subscription record");
+      
+      // Update the admin record with subscription ID reference
+      await update(userRef, {
+        currentSubscription: paymentId
+      });
+      
     } catch (subError) {
       console.error("Error creating subscription record:", subError);
       // Continue even if this fails

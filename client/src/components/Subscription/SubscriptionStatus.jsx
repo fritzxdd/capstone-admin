@@ -10,7 +10,8 @@ const SubscriptionStatus = () => {
     endDate: null,
     isTrial: false,
     remainingDays: 0,
-    planName: ''
+    planName: '',
+    currentPlan: ''
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -22,54 +23,36 @@ const SubscriptionStatus = () => {
       return;
     }
 
+    // Listen for real-time updates to subscription data
     const userRef = ref(db, `law_firm_admin/${user.uid}`);
     const unsubscribe = onValue(userRef, (snapshot) => {
       if (snapshot.exists()) {
         const userData = snapshot.val();
         
-        // Calculate subscription status
+        // Calculate current subscription status
         const now = Date.now();
         const endDate = userData.subscriptionEndDate || 0;
         const status = userData.subscriptionStatus || 'none';
         const isTrial = userData.isTrial || false;
+        const currentPlan = userData.currentPlan || '';
         
-        // If user has a paid subscription, prioritize it over trial
-        if (status === 'active' && !isTrial) {
-          // Calculate remaining days for paid subscription
-          const remainingDays = endDate > now
-            ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
-            : 0;
-          
-          setSubscriptionData({
-            status: endDate < now ? 'expired' : status,
-            endDate,
-            isTrial: false,
-            remainingDays,
-            planName: getPlanName(userData.currentPlan)
-          });
-        } 
-        // Otherwise show trial if active
-        else if (status === 'active' && isTrial) {
-          const remainingDays = endDate > now
-            ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
-            : 0;
-          
-          setSubscriptionData({
-            status: endDate < now ? 'expired' : status,
-            endDate,
-            isTrial: true,
-            remainingDays
-          });
-        }
-        // Otherwise show no subscription or expired
-        else {
-          setSubscriptionData({
-            status: endDate < now && status === 'active' ? 'expired' : status,
-            endDate,
-            isTrial: userData.isTrial || false,
-            remainingDays: 0
-          });
-        }
+        // Calculate remaining days - ensure this is accurate
+        const remainingDays = endDate > now
+          ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
+          : 0;
+        
+        // Determine if subscription has expired
+        const isExpired = endDate < now && status === 'active';
+        const effectiveStatus = isExpired ? 'expired' : status;
+        
+        setSubscriptionData({
+          status: effectiveStatus,
+          endDate,
+          isTrial,
+          remainingDays,
+          planName: getPlanName(currentPlan),
+          currentPlan
+        });
       }
       setLoading(false);
     });
@@ -82,7 +65,8 @@ const SubscriptionStatus = () => {
     const planNames = {
       'plan_1month': '1 Month Plan',
       'plan_6months': '6 Months Plan',
-      'plan_1year': '1 Year Plan'
+      'plan_1year': '1 Year Plan',
+      'plan_trial': 'Free Trial'
     };
     return planNames[planId] || 'Subscription';
   };
