@@ -9,7 +9,8 @@ const SubscriptionStatus = () => {
     status: 'loading',
     endDate: null,
     isTrial: false,
-    remainingDays: 0
+    remainingDays: 0,
+    planName: ''
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -29,24 +30,65 @@ const SubscriptionStatus = () => {
         const status = userData.subscriptionStatus || 'none';
         const isTrial = userData.isTrial || false;
         
-        // Calculate remaining days
-        const remainingDays = endDate > now
-          ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
-          : 0;
-        
-        // Update local state
-        setSubscriptionData({
-          status: endDate < now && status === 'active' ? 'expired' : status,
-          endDate,
-          isTrial,
-          remainingDays
-        });
+        // If user has a paid subscription, prioritize it over trial
+        if (status === 'active' && !isTrial) {
+          // Calculate remaining days for paid subscription
+          const remainingDays = endDate > now
+            ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
+            : 0;
+          
+          setSubscriptionData({
+            status: endDate < now ? 'expired' : status,
+            endDate,
+            isTrial: false,
+            remainingDays,
+            planName: getPlanName(userData.currentPlan)
+          });
+        } 
+        // Otherwise show trial if active
+        else if (status === 'active' && isTrial) {
+          const remainingDays = endDate > now
+            ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
+            : 0;
+          
+          setSubscriptionData({
+            status: endDate < now ? 'expired' : status,
+            endDate,
+            isTrial: true,
+            remainingDays
+          });
+        }
+        // Otherwise show no subscription or expired
+        else {
+          setSubscriptionData({
+            status: endDate < now && status === 'active' ? 'expired' : status,
+            endDate,
+            isTrial: userData.isTrial || false,
+            remainingDays: 0
+          });
+        }
       }
       setLoading(false);
     });
 
+    // Load from localStorage or sessionStorage if available
+    const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
+    if (storedAdmin) {
+      setAdminData(JSON.parse(storedAdmin));
+    }
+
     return () => unsubscribe();
   }, []);
+
+  // Helper function to get plan name
+  const getPlanName = (planId) => {
+    const planNames = {
+      'plan_1month': '1 Month Plan',
+      'plan_6months': '6 Months Plan',
+      'plan_1year': '1 Year Plan'
+    };
+    return planNames[planId] || 'Subscription';
+  };
 
   const handleUpgrade = () => {
     navigate('/plans');
@@ -72,8 +114,37 @@ const SubscriptionStatus = () => {
 
   // Handle different subscription states
   const renderSubscriptionContent = () => {
-    const { status, isTrial, remainingDays, endDate } = subscriptionData;
+    const { status, isTrial, remainingDays, endDate, planName } = subscriptionData;
 
+    // Paid subscription
+    if (status === 'active' && !isTrial) {
+      return (
+        <>
+          <div className="subscription-info">
+            <h3>Premium Subscription Active</h3>
+            <p className="subscription-detail">
+              <span className="detail-label">Plan:</span>
+              <span className="detail-value">{planName}</span>
+            </p>
+            <p className="subscription-detail">
+              <span className="detail-label">Expires:</span>
+              <span className="detail-value">{formatDate(endDate)}</span>
+            </p>
+            <p className="subscription-detail">
+              <span className="detail-label">Remaining:</span>
+              <span className="detail-value highlight">{remainingDays} days</span>
+            </p>
+          </div>
+          <button 
+            className="subscription-cta secondary" 
+            onClick={handleUpgrade}
+          >
+            Manage Subscription
+          </button>
+        </>
+      );
+    }
+    
     // Active trial
     if (status === 'active' && isTrial) {
       return (
@@ -97,31 +168,6 @@ const SubscriptionStatus = () => {
             onClick={handleUpgrade}
           >
             Upgrade Now
-          </button>
-        </>
-      );
-    }
-    
-    // Paid subscription
-    if (status === 'active' && !isTrial) {
-      return (
-        <>
-          <div className="subscription-info">
-            <h3>Premium Subscription Active</h3>
-            <p className="subscription-detail">
-              <span className="detail-label">Expires:</span>
-              <span className="detail-value">{formatDate(endDate)}</span>
-            </p>
-            <p className="subscription-detail">
-              <span className="detail-label">Remaining:</span>
-              <span className="detail-value highlight">{remainingDays} days</span>
-            </p>
-          </div>
-          <button 
-            className="subscription-cta secondary" 
-            onClick={handleUpgrade}
-          >
-            Manage Subscription
           </button>
         </>
       );
