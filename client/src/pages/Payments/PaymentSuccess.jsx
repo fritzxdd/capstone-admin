@@ -59,12 +59,14 @@ const PaymentSuccess = () => {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + duration);
       
-      // Update user data
+      // Update user data - explicitly mark the trial as ended
       const userRef = ref(db, `law_firm_admin/${userId}`);
       await update(userRef, {
         subscriptionStatus: 'active',
         subscriptionEndDate: endDate.getTime(),
-        isTrial: false,
+        isTrial: false,             // Explicitly set to false
+        trialEnded: true,           // Add this field to indicate trial has ended
+        trialUpgradedTo: planId,    // Record what plan the trial was upgraded to
         currentPlan: planId,
         paymentId: paymentId,
         lastPaymentDate: startDate.getTime()
