@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { ref, update, set, get } from "firebase/database";
-import { updateSubscription } from "../../utils/FirebaseHelper";
 import "../../styles/index.css";
 
 // Simple check mark SVG component
@@ -31,28 +30,33 @@ const PaymentSuccess = () => {
       try {
         console.log("Processing payment success with URL:", location.search);
         const queryParams = new URLSearchParams(location.search);
+        
+        // Get required parameters
         const paymentId = queryParams.get('payment_id');
         const plan = queryParams.get('plan');
         const userId = queryParams.get('userId') || auth.currentUser?.uid;
         
         console.log("Payment Success params:", { paymentId, plan, userId });
         
-        if (!paymentId || !plan || !userId) {
-          console.error("Missing required parameters:", { paymentId, plan, userId });
-          setError("Missing payment information. Please contact support.");
+        // Generate a payment ID if missing (using timestamp + userId)
+        const generatedPaymentId = paymentId || `manual_payment_${Date.now()}_${userId?.substring(0, 8) || 'unknown'}`;
+        
+        if (!plan || !userId) {
+          console.error("Missing required parameters:", { plan, userId });
+          setError("Missing plan or user information. Please contact support.");
           setLoading(false);
           return;
         }
         
-        // Use the helper function instead of local implementation
-        await updateSubscription(userId, plan, paymentId);
+        // Update subscription status in Firebase
+        await updateSubscriptionStatus(userId, plan, generatedPaymentId);
         
         // Get plan details
         await fetchPlanDetails(plan);
         
       } catch (error) {
         console.error("Error processing payment:", error);
-        setError("Error processing payment. Please contact support.");
+        setError("Error processing payment. Please contact support: " + error.message);
       } finally {
         setLoading(false);
       }
@@ -92,6 +96,9 @@ const PaymentSuccess = () => {
             console.log(`Found ${additionalDays} days remaining on current subscription`);
           }
         }
+      } else {
+        console.error("User data not found for ID:", userId);
+        throw new Error("User data not found. Please contact support.");
       }
       
       // Get plan duration
@@ -113,7 +120,7 @@ const PaymentSuccess = () => {
       
       console.log(`Subscription period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
       
-      // Create subscription data object
+      // Create subscription data object - only fields to update
       const subscriptionData = {
         subscriptionStatus: 'active',
         subscriptionEndDate: endDate.getTime(),
@@ -125,7 +132,7 @@ const PaymentSuccess = () => {
       
       console.log("Updating user data in Firebase:", subscriptionData);
       
-      // Update user data - DO NOT REPLACE entire user object, just update specific fields
+      // Update user data - DO NOT use set() here, use update() to preserve other fields
       await update(userRef, subscriptionData);
       
       // Create a subscription record for tracking
