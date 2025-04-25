@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { ref, update, set, get } from "firebase/database";
+import { updateSubscription } from "../../utils/FirebaseHelper";
 import "../../styles/index.css";
 
 // Simple check mark SVG component
@@ -24,132 +25,140 @@ const PaymentSuccess = () => {
     amount: 0
   });
   
-  // Extract query parameters
+  // Extract query parameters and update subscription
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const paymentId = queryParams.get('payment_id');
-    const plan = queryParams.get('plan');
-    const userId = queryParams.get('userId') || auth.currentUser?.uid;
-    
-    console.log("Payment Success params:", { paymentId, plan, userId });
-    
-    if (paymentId && plan && userId) {
-      // Update subscription status in Firebase
-      updateSubscriptionStatus(userId, plan, paymentId);
-      
-      // Get plan details if possible
-      fetchPlanDetails(plan);
-    } else {
-      console.warn("Missing required parameters:", { paymentId, plan, userId });
-      setLoading(false);
-    }
-  }, [location]);
-  
-// Enhanced updateSubscriptionStatus function for PaymentSuccess.jsx
-const updateSubscriptionStatus = async (userId, planId, paymentId) => {
-  try {
-    console.log("Updating subscription status for:", { userId, planId, paymentId });
-    
-    if (!userId) {
-      console.error("No userId provided for subscription update");
-      setError("User identification error. Please contact support.");
-      setLoading(false);
-      return;
-    }
-    
-    // First, check if there's an existing subscription with days remaining
-    const userRef = ref(db, `law_firm_admin/${userId}`);
-    const userSnapshot = await get(userRef);
-    
-    let additionalDays = 0;
-    
-    if (userSnapshot.exists()) {
-      const userData = userSnapshot.val();
-      
-      // Check if they have an active subscription with remaining days
-      if (userData.subscriptionStatus === 'active') {
-        const now = Date.now();
-        const currentEndDate = userData.subscriptionEndDate || 0;
+    const processPayment = async () => {
+      try {
+        console.log("Processing payment success with URL:", location.search);
+        const queryParams = new URLSearchParams(location.search);
+        const paymentId = queryParams.get('payment_id');
+        const plan = queryParams.get('plan');
+        const userId = queryParams.get('userId') || auth.currentUser?.uid;
         
-        // If there are days remaining, calculate them
-        if (currentEndDate > now) {
-          additionalDays = Math.ceil((currentEndDate - now) / (1000 * 60 * 60 * 24));
-          console.log(`Found ${additionalDays} days remaining on current subscription`);
+        console.log("Payment Success params:", { paymentId, plan, userId });
+        
+        if (!paymentId || !plan || !userId) {
+          console.error("Missing required parameters:", { paymentId, plan, userId });
+          setError("Missing payment information. Please contact support.");
+          setLoading(false);
+          return;
         }
+        
+        // Use the helper function instead of local implementation
+        await updateSubscription(userId, plan, paymentId);
+        
+        // Get plan details
+        await fetchPlanDetails(plan);
+        
+      } catch (error) {
+        console.error("Error processing payment:", error);
+        setError("Error processing payment. Please contact support.");
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    // Get plan duration
-    let planDuration = 30; // default 1 month
-    if (planId === 'plan_6months') planDuration = 180;
-    if (planId === 'plan_1year') planDuration = 365;
-    
-    // Add the remaining days to the new subscription
-    const totalDuration = planDuration + additionalDays;
-    
-    console.log(`Base plan duration: ${planDuration} days`);
-    console.log(`Additional days from existing subscription: ${additionalDays} days`);
-    console.log(`Total duration: ${totalDuration} days`);
-    
-    // Calculate end date
-    const startDate = new Date();
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + totalDuration);
-    
-    console.log(`Subscription period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    
-    // Create subscription data object
-    const subscriptionData = {
-      subscriptionStatus: 'active',
-      subscriptionEndDate: endDate.getTime(),
-      isTrial: false,
-      trialEnded: true,
-      trialUpgradedTo: planId,
-      currentPlan: planId,
-      paymentId: paymentId,
-      lastPaymentDate: startDate.getTime(),
-      additionalDays: additionalDays, // Store this for reference
-      totalDuration: totalDuration
     };
     
-    console.log("Updating user data in Firebase:", subscriptionData);
-    
-    // Update user data
-    await update(userRef, subscriptionData);
-    
-    // Also create a subscription record for tracking
+    processPayment();
+  }, [location]);
+  
+  // Function to update subscription status in Firebase
+  const updateSubscriptionStatus = async (userId, planId, paymentId) => {
     try {
-      const subscriptionRef = ref(db, `subscriptions/${paymentId}`);
-      await set(subscriptionRef, {
-        userId,
-        planId,
-        startDate: startDate.getTime(),
-        endDate: endDate.getTime(),
-        status: 'active',
-        additionalDays: additionalDays,
-        paymentId,
-        createdAt: Date.now()
-      });
-      console.log("Created subscription record");
+      console.log("Updating subscription status for:", { userId, planId, paymentId });
       
-      // Update the admin record with subscription ID reference
-      await update(userRef, {
-        currentSubscription: paymentId
-      });
+      if (!userId) {
+        throw new Error("No userId provided for subscription update");
+      }
       
-    } catch (subError) {
-      console.error("Error creating subscription record:", subError);
-      // Continue even if this fails
+      // First, check if there's an existing subscription with days remaining
+      const userRef = ref(db, `law_firm_admin/${userId}`);
+      const userSnapshot = await get(userRef);
+      
+      let additionalDays = 0;
+      let userData = {};
+      
+      if (userSnapshot.exists()) {
+        userData = userSnapshot.val();
+        console.log("Current user data:", userData);
+        
+        // Check if they have an active subscription with remaining days
+        if (userData.subscriptionStatus === 'active') {
+          const now = Date.now();
+          const currentEndDate = userData.subscriptionEndDate || 0;
+          
+          // If there are days remaining, calculate them
+          if (currentEndDate > now) {
+            additionalDays = Math.ceil((currentEndDate - now) / (1000 * 60 * 60 * 24));
+            console.log(`Found ${additionalDays} days remaining on current subscription`);
+          }
+        }
+      }
+      
+      // Get plan duration
+      let planDuration = 30; // default 1 month
+      if (planId === 'plan_6months') planDuration = 180;
+      if (planId === 'plan_1year') planDuration = 365;
+      
+      // Add the remaining days to the new subscription
+      const totalDuration = planDuration + additionalDays;
+      
+      console.log(`Base plan duration: ${planDuration} days`);
+      console.log(`Additional days from existing subscription: ${additionalDays} days`);
+      console.log(`Total duration: ${totalDuration} days`);
+      
+      // Calculate end date
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + totalDuration);
+      
+      console.log(`Subscription period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      
+      // Create subscription data object
+      const subscriptionData = {
+        subscriptionStatus: 'active',
+        subscriptionEndDate: endDate.getTime(),
+        isTrial: false,
+        currentPlan: planId,
+        paymentId: paymentId,
+        lastPaymentDate: startDate.getTime()
+      };
+      
+      console.log("Updating user data in Firebase:", subscriptionData);
+      
+      // Update user data - DO NOT REPLACE entire user object, just update specific fields
+      await update(userRef, subscriptionData);
+      
+      // Create a subscription record for tracking
+      try {
+        const subscriptionRef = ref(db, `subscriptions/${paymentId}`);
+        await set(subscriptionRef, {
+          userId,
+          planId,
+          startDate: startDate.getTime(),
+          endDate: endDate.getTime(),
+          status: 'active',
+          additionalDays: additionalDays,
+          paymentId,
+          createdAt: Date.now()
+        });
+        console.log("Created subscription record");
+        
+        // Update the admin record with subscription ID reference
+        await update(userRef, {
+          currentSubscription: paymentId
+        });
+        
+      } catch (subError) {
+        console.error("Error creating subscription record:", subError);
+        // Continue even if this fails
+      }
+      
+      console.log("Subscription update completed successfully");
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      throw error; // Rethrow to handle in parent function
     }
-    
-    console.log("Subscription update completed successfully");
-  } catch (error) {
-    console.error("Error updating subscription:", error);
-    setError("There was an issue updating your subscription status. Please contact support.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   
   // Fetch plan details if available
   const fetchPlanDetails = async (planId) => {

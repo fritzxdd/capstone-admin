@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../../services/firebase';
-import { ref, onValue } from 'firebase/database';
+import { auth } from '../../services/firebase';
+import { getSubscriptionStatus, calculateRemainingDays } from '../../utils/FirebaseHelper';
 import '../../styles/index.css';
 
 const SubscriptionStatus = () => {
@@ -10,66 +10,36 @@ const SubscriptionStatus = () => {
     endDate: null,
     isTrial: false,
     remainingDays: 0,
-    planName: '',
-    currentPlan: ''
+    planName: ''
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    const fetchSubscriptionStatus = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-    // Listen for real-time updates to subscription data
-    const userRef = ref(db, `law_firm_admin/${user.uid}`);
-    const unsubscribe = onValue(userRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const userData = snapshot.val();
-        
-        // Calculate current subscription status
-        const now = Date.now();
-        const endDate = userData.subscriptionEndDate || 0;
-        const status = userData.subscriptionStatus || 'none';
-        const isTrial = userData.isTrial || false;
-        const currentPlan = userData.currentPlan || '';
-        
-        // Calculate remaining days - ensure this is accurate
-        const remainingDays = endDate > now
-          ? Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
-          : 0;
-        
-        // Determine if subscription has expired
-        const isExpired = endDate < now && status === 'active';
-        const effectiveStatus = isExpired ? 'expired' : status;
-        
-        setSubscriptionData({
-          status: effectiveStatus,
-          endDate,
-          isTrial,
-          remainingDays,
-          planName: getPlanName(currentPlan),
-          currentPlan
-        });
+        const status = await getSubscriptionStatus(user.uid);
+        setSubscriptionData(status);
+      } catch (error) {
+        console.error("Error fetching subscription status:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Helper function to get plan name
-  const getPlanName = (planId) => {
-    const planNames = {
-      'plan_1month': '1 Month Plan',
-      'plan_6months': '6 Months Plan',
-      'plan_1year': '1 Year Plan',
-      'plan_trial': 'Free Trial'
     };
-    return planNames[planId] || 'Subscription';
-  };
+
+    fetchSubscriptionStatus();
+
+    // Add a periodic refresh to keep remaining days updated
+    const intervalId = setInterval(fetchSubscriptionStatus, 60000); // Check every minute
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleUpgrade = () => {
     navigate('/plans');

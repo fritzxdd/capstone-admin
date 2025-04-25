@@ -16,7 +16,9 @@ const stripePromise = loadStripe("pk_test_51R1JB1FK88cwX0GIKPBVnKvk71rR4fEuOLZQk
     return null;
   });
 
-// Payment method selection component
+// Enhanced PaymentMethodSelector component with improved checkout handling
+// Extract this function from PlansSubscription.jsx
+
 const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,107 +35,124 @@ const PaymentMethodSelector = ({ selectedPlan, onCancel }) => {
     }, 5000);
   };
   
-  // Enhanced Stripe Checkout Function for PlansSubscription.jsx
-
-const handleStripeCheckout = async () => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const stripe = await stripePromise;
+  const handleStripeCheckout = async () => {
+    setLoading(true);
+    setError(null);
     
-    if (!stripe) {
-      throw new Error("Stripe failed to initialize. Please try again later.");
-    }
-    
-    // Get current user
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error("You must be logged in to make a purchase.");
-    }
-    
-    // Calculate the origin URL for success/cancel redirects
-    const origin = window.location.origin;
-    
-    // Build payment data with more detailed user information
-    const paymentData = {
-      planId: selectedPlan.id,
-      planName: selectedPlan.name,
-      amount: selectedPlan.amount,
-      success_url: `${origin}/payment-success?userId=${user.uid}&plan=${selectedPlan.id}`, 
-      cancel_url: `${origin}/plans`,
-      user_id: user.uid, // Add user ID for server-side processing
-      metadata: {
-        user_email: user.email,
-        plan_duration: selectedPlan.duration
+    try {
+      const stripe = await stripePromise;
+      
+      if (!stripe) {
+        throw new Error("Stripe failed to initialize. Please try again later.");
       }
-    };
-    
-    console.log('Creating checkout session for plan:', paymentData);
-    
-    // Get the API base URL
-    const apiBaseUrl = getApiBaseUrl();
-    
-    // Call your backend to create a Checkout Session
-    const response = await axios.post(`${apiBaseUrl}/create-checkout-session`, paymentData, {
-      headers: {
-        'Content-Type': 'application/json'
+      
+      if (!user) {
+        throw new Error("You must be logged in to complete this transaction.");
       }
-    });
-    
-    console.log('Stripe checkout session created:', response.data);
-    
-    // Store plan info in user data for confirmation after payment
-    if (user && response.data && response.data.id) {
-      try {
-        // Update pending plan information in Firebase
-        const userRef = ref(db, `law_firm_admin/${user.uid}`);
-        await update(userRef, {
-          pendingPlan: {
-            id: selectedPlan.id,
-            name: selectedPlan.name,
-            duration: selectedPlan.duration,
-            amount: selectedPlan.amount,
-            checkoutSessionId: response.data.id,
-            timestamp: Date.now()
+      
+      // Prepare detailed payment data
+      const paymentData = {
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        amount: selectedPlan.amount,
+        success_url: `${window.location.origin}/payment-success?userId=${user.uid}&plan=${selectedPlan.id}`, 
+        cancel_url: `${window.location.origin}/plans`,
+        // Additional metadata for server-side processing
+        metadata: {
+          user_id: user.uid,
+          user_email: user.email,
+          plan_duration: selectedPlan.duration || getDefaultDuration(selectedPlan.id)
+        }
+      };
+      
+      console.log('Creating checkout session with data:', paymentData);
+      
+      // Get the API base URL
+      const apiBaseUrl = getApiBaseUrl();
+      console.log(`API base URL: ${apiBaseUrl}`);
+      
+      // Call backend to create Checkout Session
+      const response = await axios.post(`${apiBaseUrl}/create-checkout-session`, paymentData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Stripe response:', response.data);
+      
+      // Store pending plan info in Firebase
+      if (user && response.data && response.data.id) {
+        try {
+          const userRef = ref(db, `law_firm_admin/${user.uid}`);
+          
+          // First get current subscription data to preserve existing fields
+          const snapshot = await get(userRef);
+          let currentData = {};
+          
+          if (snapshot.exists()) {
+            currentData = snapshot.val();
           }
-        });
-        console.log("Pending plan data saved to user profile");
-      } catch (dbError) {
-        console.error("Failed to save pending plan data:", dbError);
-        // Continue to Stripe checkout even if DB update fails
+          
+          // Update with pending plan information
+          await update(userRef, {
+            pendingPlan: {
+              id: selectedPlan.id,
+              name: selectedPlan.name,
+              duration: selectedPlan.duration || getDefaultDuration(selectedPlan.id),
+              amount: selectedPlan.amount,
+              checkoutSessionId: response.data.id,
+              timestamp: Date.now()
+            },
+            // Preserve important fields
+            ...currentData
+          });
+          
+          console.log("Pending plan data saved for user:", user.uid);
+        } catch (dbError) {
+          console.error("Failed to save pending plan data:", dbError);
+          // Continue checkout even if DB update fails
+        }
       }
+      
+      // Redirect to Stripe Checkout
+      console.log('Redirecting to Stripe checkout...');
+      const result = await stripe.redirectToCheckout({
+        sessionId: response.data.id,
+      });
+      
+      if (result.error) {
+        console.error('Stripe redirect error:', result.error);
+        throw new Error(result.error.message);
+      }
+    } catch (error) {
+      console.error('Payment error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      // Set error message based on context
+      if (error.response?.status === 500) {
+        setError("Payment service is currently unavailable. Please try again later.");
+      } else {
+        setError(error.message || 'Something went wrong. Please try again.');
+      }
+      
+      showToast('Payment processing error. Please try again later.', 'error');
+      setLoading(false);
     }
-    
-    // Redirect to Stripe Checkout
-    console.log('Redirecting to Stripe checkout...');
-    const result = await stripe.redirectToCheckout({
-      sessionId: response.data.id,
-    });
-    
-    if (result.error) {
-      console.error('Stripe redirect error:', result.error);
-      throw new Error(result.error.message);
+  };
+  
+  // Helper to get default duration based on plan ID
+  const getDefaultDuration = (planId) => {
+    switch(planId) {
+      case 'plan_1month': return 30;
+      case 'plan_6months': return 180;
+      case 'plan_1year': return 365;
+      default: return 30;
     }
-  } catch (error) {
-    console.error('Payment error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      statusText: error.response?.statusText
-    });
-    
-    // Set error message based on context
-    if (error.response?.status === 500) {
-      setError("Payment service is currently unavailable. Please try again later.");
-    } else {
-      setError(error.message || 'Something went wrong. Please try again.');
-    }
-    
-    showToast('Payment processing error. Please try again later.', 'error');
-    setLoading(false);
-  }
-};
+  };
   
   return (
     <div className="payment-method-container">
