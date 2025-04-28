@@ -6,6 +6,8 @@ import { ref, set, get } from "firebase/database";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
+import Toast from "../../components/UI/Toast";
+import SecretarySelector from "../../components/Secretary/SecretarySelector";
 import "../../styles/index.css";
 
 const AddLawyer = () => {
@@ -19,14 +21,22 @@ const AddLawyer = () => {
     experience: "", 
     password: "" 
   });
+  const [secretaryId, setSecretaryId] = useState("");
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
   const [success, setSuccess] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
+
+  // Display toast message
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -76,14 +86,21 @@ const AddLawyer = () => {
     return tempPassword;
   };
 
+  const validateForm = () => {
+    if (!lawyer.name || !lawyer.email) {
+      setError("Name and email are required fields.");
+      return false;
+    }
+    return true;
+  };
+
   const addLawyer = async () => {
-    if (!lawFirmAdmin) {
-      setError("Law firm admin data not loaded.");
+    if (!validateForm()) {
       return;
     }
-  
-    if (!lawyer.name || !lawyer.email) {
-      setError("Please fill in all required fields.");
+
+    if (!lawFirmAdmin) {
+      setError("Law firm admin data not loaded.");
       return;
     }
     
@@ -125,23 +142,10 @@ const AddLawyer = () => {
           password
         );
         
-        // Send verification email to the lawyer using the imported function
+        // Send verification email to the lawyer
         await sendEmailVerification(userCredential.user);
         
         const lawyerUID = userCredential.user.uid;
-        
-        // Check for secretary
-        const secretariesRef = ref(db, "secretaries");
-        const secretariesSnap = await get(secretariesRef);
-      
-        let secretaryId = null;
-        if (secretariesSnap.exists()) {
-          Object.entries(secretariesSnap.val()).forEach(([secId, secData]) => {
-            if (secData.lawFirm === lawFirmAdmin.lawFirm) {
-              secretaryId = secId;
-            }
-          });
-        }
         
         // Save lawyer data to database
         await set(ref(db, `lawyers/${lawyerUID}`), {
@@ -155,7 +159,7 @@ const AddLawyer = () => {
           profileImage: preview || "",
           lawFirm: lawFirmAdmin.lawFirm,
           adminUID: adminUID,
-          secretaryId: secretaryId || "",
+          secretaryId: secretaryId || "",  // Save the selected secretary ID
           passwordChanged: false, // Indicate this is a temporary password
           createdAt: new Date().toISOString()
         });
@@ -164,14 +168,21 @@ const AddLawyer = () => {
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
         // Success! Admin is logged back in
-        setSuccess(`Lawyer account created successfully! Verification email sent to ${lawyer.email}. 
-                   Temporary password: ${password}`);
+        const successMsg = `Lawyer account created successfully! Verification email sent to ${lawyer.email}.`;
+        setSuccess(successMsg);
+        showToast(successMsg, 'success');
+        
+        if (password === generatedPassword) {
+          showToast(`Temporary password: ${password}`, 'info');
+        }
+        
+        // Reset form
         setLawyer({ name: "", email: "", phone: "", specialization: "", licenseNumber: "", experience: "", password: "" });
         setAdminCredentials(prev => ({ ...prev, password: "" }));
         setImage(null);
         setPreview(null);
         setGeneratedPassword("");
-        
+        setSecretaryId("");
       } catch (error) {
         // Try to sign back in as admin if something went wrong
         try {
@@ -199,6 +210,8 @@ const AddLawyer = () => {
   return (
     <div className="app-container">
       <div className="app-content">
+        {toast && <Toast message={toast.message} type={toast.type} />}
+        
         <Card className="lawyer-card">
           <div className="lawyer-card-header">
             <button onClick={() => navigate("/")} className="lawyer-back-button">
@@ -337,6 +350,17 @@ const AddLawyer = () => {
                         value={lawyer.experience} 
                         onChange={handleChange} 
                       />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="secretary">Assign Secretary</label>
+                      {lawFirmAdmin && (
+                        <SecretarySelector 
+                          adminId={lawFirmAdmin.uid} 
+                          selectedSecretaryId={secretaryId}
+                          onChange={setSecretaryId}
+                        />
+                      )}
                     </div>
 
                     <div className="form-group">
