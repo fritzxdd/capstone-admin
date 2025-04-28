@@ -3933,3 +3933,350 @@ button:disabled {
     flex-direction: column;
   }
 }
+/* Simple Secretary Management Styles */
+
+/* Secretary selector */
+.secretary-selector {
+  margin-bottom: 15px;
+}
+
+.secretary-selector select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.selected-secretary-info {
+  margin-top: 5px;
+  font-size: 0.85em;
+  color: #666;
+}
+
+.no-secretary {
+  color: #666;
+  font-style: italic;
+}
+
+/* Password group */
+.password-group {
+  display: flex;
+  gap: 8px;
+}
+
+.password-group input {
+  flex: 1;
+}
+
+.generate-btn {
+  background-color: #3867d6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0 15px;
+  cursor: pointer;
+}
+
+/* Secretary management layout */
+.secretary-management {
+  display: flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.secretary-sidebar {
+  width: 260px;
+  border-right: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+}
+
+.sidebar-header {
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-btn {
+  padding: 5px 10px;
+  background-color: #3867d6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.secretary-list {
+  padding: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.secretary-list-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secretary-list-item:hover {
+  background-color: #f1f5f9;
+}
+
+.secretary-list-item.selected {
+  background-color: #dbeafe;
+}
+
+.secretary-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #0a3d62;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-right: 10px;
+}
+
+.secretary-avatar.large {
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+}
+
+.secretary-list-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.secretary-list-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.secretary-list-email {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Secretary details */
+.secretary-details {
+  flex: 1;
+  padding: 16px;
+}
+
+.secretary-profile {
+  display: flex;
+  align-items: center;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.secretary-info {
+  margin-left: 16px;
+}
+
+.secretary-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+}
+
+.secretary-role {
+  display: inline-block;
+  background-color: #e2e8f0;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.info-section {
+  margin-bottom: 20px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.info-row {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  width: 80px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.info-value {
+  flex: 1;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-btn {
+  background-color: #3867d6;
+  color: white;
+}
+
+.primary-btn:hover {
+  background-color: #2854c0;
+}
+
+.secondary-btn {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.secondary-btn:hover {
+  background-color: #cbd5e1;
+}
+
+.danger-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.danger-btn:hover {
+  background-color: #dc2626;
+}
+
+/* Empty and select states */
+.empty-state, .select-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-icon, .select-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state h3, .select-state h3 {
+  margin-bottom: 8px;
+}
+
+.empty-state p, .select-state p {
+  color: #64748b;
+}
+
+/* Secretary edit form */
+.secretary-edit-form {
+  padding: 20px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+}
+
+.secretary-edit-form h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3867d6;
+  box-shadow: 0 0 0 2px rgba(56, 103, 214, 0.2);
+}
+
+/* Messages */
+.error-message {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  background-color: #dcfce7;
+  color: #15803d;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 40px 0;
+  color: #64748b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .secretary-management {
+    flex-direction: column;
+  }
+  
+  .secretary-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+}
