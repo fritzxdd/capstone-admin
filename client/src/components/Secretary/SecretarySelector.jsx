@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ref, get } from 'firebase/database';
 import { db } from '../../services/firebase';
-import Button from '../UI/Button';
 
 /**
- * SecretarySelector component for selecting a secretary from available options
+ * Simple SecretarySelector component for selecting a secretary from available options
  * @param {Object} props Component properties
  * @param {string} props.adminId Admin ID to filter secretaries by
  * @param {string} props.selectedSecretaryId Currently selected secretary ID
@@ -68,70 +67,29 @@ const SecretarySelector = ({
     fetchSecretaries();
   }, [adminId]);
   
-  // If we have the selected secretary ID but it's not in our list,
-  // fetch that secretary's data directly
-  useEffect(() => {
-    const fetchSelectedSecretary = async () => {
-      if (!selectedSecretaryId || secretaries.some(s => s.id === selectedSecretaryId)) {
-        return; // Either no selection or we already have it in our list
-      }
-      
-      try {
-        const secretaryRef = ref(db, `secretaries/${selectedSecretaryId}`);
-        const snapshot = await get(secretaryRef);
-        
-        if (snapshot.exists()) {
-          const secretaryData = snapshot.val();
-          
-          // Add to our list if not already there
-          setSecretaries(prev => {
-            if (prev.some(s => s.id === selectedSecretaryId)) {
-              return prev;
-            }
-            return [...prev, {
-              id: selectedSecretaryId,
-              ...secretaryData
-            }];
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching selected secretary:', err);
-      }
-    };
-    
-    fetchSelectedSecretary();
-  }, [selectedSecretaryId, secretaries]);
-  
   // Find data for the selected secretary
   const selectedSecretary = secretaries.find(s => s.id === selectedSecretaryId);
   
   if (loading) {
-    return <div className="secretary-selector-loading">Loading secretaries...</div>;
+    return <div>Loading secretaries...</div>;
   }
   
   if (error) {
-    return <div className="secretary-selector-error">{error}</div>;
+    return <div className="error-message">{error}</div>;
   }
   
   return (
     <div className="secretary-selector">
       {secretaries.length === 0 ? (
         <div className="no-secretary">
-          <p>No secretaries available.</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => window.location.href = '/add-secretary'}
-          >
-            Add Secretary
-          </Button>
+          <p>No secretaries available. <a href="/add-secretary">Add a secretary</a> first.</p>
         </div>
       ) : (
         <>
           <select 
             value={selectedSecretaryId || ""}
             onChange={(e) => onChange(e.target.value)}
-            className="secretary-select"
+            className="form-control"
             disabled={disabled}
           >
             <option value="">-- Select a secretary --</option>
@@ -142,12 +100,9 @@ const SecretarySelector = ({
             ))}
           </select>
           
-          {selectedSecretary && (
-            <div className="assigned-secretary-info">
-              <h4>Assigned Secretary</h4>
-              <p>Name: {selectedSecretary.name}</p>
-              <p>Email: {selectedSecretary.email}</p>
-              {selectedSecretary.phone && <p>Phone: {selectedSecretary.phone}</p>}
+          {selectedSecretary && !disabled && (
+            <div className="selected-secretary-info">
+              <small>Currently assigned: <strong>{selectedSecretary.name}</strong> ({selectedSecretary.email})</small>
             </div>
           )}
         </>
