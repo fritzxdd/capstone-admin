@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { ref, set, push, get } from "firebase/database";
+import { ref, set, get } from "firebase/database";
+import FormLayout from "../../components/Layout/FormLayout";
 import "../../styles/index.css";
 
 const AddSecretary = () => {
@@ -18,6 +19,7 @@ const AddSecretary = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
   const [generatedPassword, setGeneratedPassword] = useState("");
 
@@ -157,14 +159,21 @@ const AddSecretary = () => {
         
         // Success! Admin is logged back in
         setSuccess(true);
-        alert("Secretary added successfully! Verification email sent.");
+        setSuccessMessage(`Secretary account created successfully! Verification email sent to ${secretary.email}.`);
         
-        // Reset form
-        setSecretary({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
-        setAdminCredentials(prev => ({ ...prev, password: "" }));
+        if (generatedPassword) {
+          setSuccessMessage(prev => prev + ` Temporary password: ${secretary.password}`);
+        }
         
-        // Navigate back to secretary management
-        navigate("/secretary/manage");
+        // Reset form after a short delay
+        setTimeout(() => {
+          setSecretary({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+          setAdminCredentials(prev => ({ ...prev, password: "" }));
+          setGeneratedPassword("");
+          
+          // Navigate back to secretary management
+          navigate("/secretary/manage");
+        }, 3000);
         
       } catch (error) {
         // Try to sign back in as admin if something went wrong
@@ -191,37 +200,43 @@ const AddSecretary = () => {
   };
   
   return (
-    <div className="container">
-      <div className="card">
-        <h1>Add Secretary</h1>
-        
-        {error && <div className="error-message">{error}</div>}
-        
+    <FormLayout title="Add Secretary" backTo="/secretary/manage" backText="Back to Secretaries">
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{successMessage}</div>}
+      
+      {isLoading ? (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p className="loading-text">Creating secretary account...</p>
+        </div>
+      ) : (
         <form onSubmit={addSecretary}>
-          <div className="form-group">
-            <label htmlFor="name">Full Name *</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={secretary.name}
-              onChange={handleChange}
-              placeholder="Enter secretary's full name"
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="email">Email Address *</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={secretary.email}
-              onChange={handleChange}
-              placeholder="Enter email address"
-              required
-            />
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="name" className="required-field">Full Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={secretary.name}
+                onChange={handleChange}
+                placeholder="Enter secretary's full name"
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="email" className="required-field">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={secretary.email}
+                onChange={handleChange}
+                placeholder="Enter email address"
+                required
+              />
+            </div>
           </div>
           
           <div className="form-group">
@@ -236,46 +251,48 @@ const AddSecretary = () => {
             />
           </div>
           
-          <div className="form-group">
-            <label htmlFor="password">Password *</label>
-            <div className="password-group">
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="password" className="required-field">Password</label>
+              <div className="input-group">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={secretary.password}
+                  onChange={handleChange}
+                  placeholder="Enter password or generate one"
+                  required
+                />
+                <button 
+                  type="button" 
+                  className="generate-btn"
+                  onClick={generateTemporaryPassword}
+                >
+                  Generate
+                </button>
+              </div>
+              <small className="form-text">
+                {generatedPassword ? "A temporary password has been generated." : "You can enter a password or click Generate for a temporary one."}
+              </small>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="confirmPassword" className="required-field">Confirm Password</label>
               <input
                 type="password"
-                id="password"
-                name="password"
-                value={secretary.password}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={secretary.confirmPassword}
                 onChange={handleChange}
-                placeholder="Enter password or generate one"
+                placeholder="Confirm password"
                 required
               />
-              <button 
-                type="button" 
-                className="btn generate-btn"
-                onClick={generateTemporaryPassword}
-              >
-                Generate
-              </button>
             </div>
-            <small>
-              {generatedPassword ? "A temporary password has been generated." : "You can enter a password or click Generate for a temporary one."}
-            </small>
           </div>
           
           <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password *</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={secretary.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm password"
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="adminPassword">Your Password *</label>
+            <label htmlFor="adminPassword" className="required-field">Your Password</label>
             <input
               type="password"
               id="adminPassword"
@@ -285,22 +302,22 @@ const AddSecretary = () => {
               placeholder="Enter your admin password"
               required
             />
-            <small>Required to create the secretary account</small>
+            <small className="form-text">Required to create the secretary account</small>
           </div>
           
-          <div className="email-verification-note">
+          <div className="verification-note">
             <p>A verification email will be sent to the secretary's email address. 
               They must verify their email before logging in.</p>
           </div>
           
-          <div className="form-note">
-            * Required fields
+          <div className="required-note">
+            <span>*</span> Required fields
           </div>
           
           <div className="form-actions">
             <button 
               type="submit"
-              className="btn primary-btn"
+              className="btn btn-primary"
               disabled={isLoading}
             >
               {isLoading ? 'Processing...' : 'Add Secretary'}
@@ -308,7 +325,7 @@ const AddSecretary = () => {
             
             <button 
               type="button"
-              className="btn secondary-btn"
+              className="btn btn-secondary"
               onClick={() => navigate("/secretary/manage")}
               disabled={isLoading}
             >
@@ -316,8 +333,8 @@ const AddSecretary = () => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      )}
+    </FormLayout>
   );
 };
 

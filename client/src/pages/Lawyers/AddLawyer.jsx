@@ -4,6 +4,7 @@ import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
 import SecretarySelector from "../../components/Secretary/SecretarySelector";
+import FormLayout from "../../components/Layout/FormLayout";
 import "../../styles/index.css";
 
 const AddLawyer = () => {
@@ -192,178 +193,169 @@ const AddLawyer = () => {
   };
   
   return (
-    <div className="container">
-      <div className="card">
-        <h1>Add Lawyer</h1>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
-        {isLoading ? (
-          <div className="loading">Creating lawyer account...</div>
-        ) : (
-          <form onSubmit={addLawyer}>
-            <div className="form-section">
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="name">Full Name *</label>
-                  <input 
-                    type="text" 
-                    id="name"
-                    name="name" 
-                    placeholder="Enter lawyer's full name" 
-                    value={lawyer.name} 
-                    onChange={handleChange} 
-                    required 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="email">Email Address *</label>
-                  <input 
-                    type="email" 
-                    id="email"
-                    name="email" 
-                    placeholder="Enter email address" 
-                    value={lawyer.email} 
-                    onChange={handleChange} 
-                    required 
-                  />
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="phone">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    id="phone"
-                    name="phone" 
-                    placeholder="Enter phone number" 
-                    value={lawyer.phone} 
-                    onChange={handleChange} 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="password">Password</label>
-                  <div className="password-group">
-                    <input 
-                      type="text" 
-                      id="password"
-                      name="password" 
-                      placeholder="Leave blank to auto-generate" 
-                      value={lawyer.password} 
-                      onChange={handleChange}
-                    />
-                    <button 
-                      type="button" 
-                      className="generate-btn"
-                      onClick={generateTemporaryPassword}
-                    >
-                      Generate
-                    </button>
-                  </div>
-                  <small>If left blank, a temporary password will be generated. The lawyer will need to change it after first login.</small>
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="specialization">Specialization</label>
-                  <input 
-                    type="text" 
-                    id="specialization"
-                    name="specialization" 
-                    placeholder="e.g. Family Law, Corporate Law" 
-                    value={lawyer.specialization} 
-                    onChange={handleChange} 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="licenseNumber">License Number</label>
-                  <input 
-                    type="text" 
-                    id="licenseNumber"
-                    name="licenseNumber" 
-                    placeholder="Enter license number" 
-                    value={lawyer.licenseNumber} 
-                    onChange={handleChange} 
-                  />
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="experience">Experience (years)</label>
-                  <input 
-                    type="text" 
-                    id="experience"
-                    name="experience" 
-                    placeholder="e.g. 5" 
-                    value={lawyer.experience} 
-                    onChange={handleChange} 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="secretary">Assign Secretary</label>
-                  {lawFirmAdmin && (
-                    <SecretarySelector 
-                      adminId={lawFirmAdmin.uid} 
-                      selectedSecretaryId={secretaryId}
-                      onChange={setSecretaryId}
-                    />
-                  )}
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="adminPassword">Your Password <span className="required">*</span></label>
-                <input
-                  type="password"
-                  id="adminPassword"
-                  name="adminPassword"
-                  value={adminCredentials.password}
-                  onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter your admin password"
-                  required
+    <FormLayout title="Add Lawyer" backTo="/" backText="Back to Dashboard">
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+      
+      {isLoading ? (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p className="loading-text">Creating lawyer account...</p>
+        </div>
+      ) : (
+        <form onSubmit={addLawyer}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="name" className="required-field">Full Name</label>
+              <input 
+                type="text" 
+                id="name"
+                name="name" 
+                placeholder="Enter lawyer's full name" 
+                value={lawyer.name} 
+                onChange={handleChange} 
+                required 
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="email" className="required-field">Email Address</label>
+              <input 
+                type="email" 
+                id="email"
+                name="email" 
+                placeholder="Enter email address" 
+                value={lawyer.email} 
+                onChange={handleChange} 
+                required 
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input 
+                type="tel" 
+                id="phone"
+                name="phone" 
+                placeholder="Enter phone number" 
+                value={lawyer.phone} 
+                onChange={handleChange} 
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="input-group">
+                <input 
+                  type="text" 
+                  id="password"
+                  name="password" 
+                  placeholder="Leave blank to auto-generate" 
+                  value={lawyer.password} 
+                  onChange={handleChange}
                 />
-                <small>Required to create the lawyer account</small>
+                <button 
+                  type="button" 
+                  className="generate-btn"
+                  onClick={generateTemporaryPassword}
+                >
+                  Generate
+                </button>
               </div>
+              <small className="form-text">If left blank, a temporary password will be generated.</small>
             </div>
             
-            <div className="email-verification-note">
-              <p>A verification email will be sent to the lawyer's email address. 
-                 They must verify their email before logging in.</p>
+            <div className="form-group">
+              <label htmlFor="specialization">Specialization</label>
+              <input 
+                type="text" 
+                id="specialization"
+                name="specialization" 
+                placeholder="e.g. Family Law, Corporate Law" 
+                value={lawyer.specialization} 
+                onChange={handleChange} 
+              />
             </div>
             
-            <div className="form-note">
-              <span className="required">*</span> Required fields
+            <div className="form-group">
+              <label htmlFor="licenseNumber">License Number</label>
+              <input 
+                type="text" 
+                id="licenseNumber"
+                name="licenseNumber" 
+                placeholder="Enter license number" 
+                value={lawyer.licenseNumber} 
+                onChange={handleChange} 
+              />
             </div>
             
-            <div className="form-actions">
-              <button 
-                type="submit" 
-                className="btn primary-btn"
-                disabled={isLoading}
-              >
-                Add Lawyer
-              </button>
-              
-              <button 
-                type="button" 
-                className="btn secondary-btn"
-                onClick={() => navigate("/")}
-              >
-                Cancel
-              </button>
+            <div className="form-group">
+              <label htmlFor="experience">Experience (years)</label>
+              <input 
+                type="text" 
+                id="experience"
+                name="experience" 
+                placeholder="e.g. 5" 
+                value={lawyer.experience} 
+                onChange={handleChange} 
+              />
             </div>
-          </form>
-        )}
-      </div>
-    </div>
+            
+            <div className="form-group">
+              <label htmlFor="secretary">Assign Secretary</label>
+              {lawFirmAdmin && (
+                <SecretarySelector 
+                  adminId={lawFirmAdmin.uid} 
+                  selectedSecretaryId={secretaryId}
+                  onChange={setSecretaryId}
+                />
+              )}
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="adminPassword" className="required-field">Your Password</label>
+            <input
+              type="password"
+              id="adminPassword"
+              name="adminPassword"
+              value={adminCredentials.password}
+              onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
+              placeholder="Enter your admin password"
+              required
+            />
+            <small className="form-text">Required to create the lawyer account</small>
+          </div>
+          
+          <div className="verification-note">
+            <p>A verification email will be sent to the lawyer's email address. 
+               They must verify their email before logging in.</p>
+          </div>
+          
+          <div className="required-note">
+            <span>*</span> Required fields
+          </div>
+          
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              disabled={isLoading}
+            >
+              Add Lawyer
+            </button>
+            
+            <button 
+              type="button" 
+              className="btn btn-secondary"
+              onClick={() => navigate("/")}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </FormLayout>
   );
 };
 

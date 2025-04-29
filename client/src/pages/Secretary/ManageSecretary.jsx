@@ -1,414 +1,341 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
-import { ref, get, update, remove } from "firebase/database";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { ref, set, get } from "firebase/database";
+import FormLayout from "../../components/Layout/FormLayout";
 import "../../styles/index.css";
 
-const ManageSecretary = () => {
+const AddSecretary = () => {
   const navigate = useNavigate();
-  const [secretaries, setSecretaries] = useState([]);
-  const [selectedSecretary, setSelectedSecretary] = useState(null);
-  const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    phone: ""
+  const [secretary, setSecretary] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    password: "",
+    confirmPassword: "" 
   });
+  const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
+  const [generatedPassword, setGeneratedPassword] = useState("");
 
   useEffect(() => {
     const fetchAdminData = async () => {
-      setIsLoading(true);
       const user = auth.currentUser;
       if (user) {
-        try {
-          // Get admin data from localStorage/sessionStorage first
-          const storedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
-          if (storedAdmin) {
-            const adminData = JSON.parse(storedAdmin);
-            setLawFirmAdmin(adminData);
-            await fetchSecretaries(adminData.lawFirm, user.uid);
-          } else {
-            // Fallback to database query
-            const adminRef = ref(db, `law_firm_admin/${user.uid}`);
-            const snapshot = await get(adminRef);
-            if (snapshot.exists()) {
-              const adminData = snapshot.val();
-              setLawFirmAdmin(adminData);
-              await fetchSecretaries(adminData.lawFirm, user.uid);
-            } else {
-              setError("Error: Law firm admin not found!");
-              navigate("/");
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching data:", error);
-          setError("Error loading data. Please try again later.");
+        setAdminCredentials(prev => ({ ...prev, email: user.email }));
+        const adminRef = ref(db, `law_firm_admin/${user.uid}`);
+        const snapshot = await get(adminRef);
+        if (snapshot.exists()) {
+          setLawFirmAdmin(snapshot.val());
+        } else {
+          setError("Error: Law firm admin not found!");
+          navigate("/");
         }
       }
-      setIsLoading(false);
     };
 
     fetchAdminData();
   }, [navigate]);
 
-  const fetchSecretaries = async (lawFirm, adminUID) => {
-    try {
-      // Clear any previous error
-      setError("");
-      
-      console.log(`Fetching secretaries for law firm: "${lawFirm}" and adminUID: "${adminUID}"`);
-      
-      // Query all secretaries and filter those that match our admin UID
-      const secretariesRef = ref(db, 'secretaries');
-      const snapshot = await get(secretariesRef);
-      
-      if (snapshot.exists()) {
-        const secretaryList = [];
-        
-        snapshot.forEach((childSnapshot) => {
-          const data = childSnapshot.val();
-          
-          // Check if the secretary belongs to this admin
-          if (data.adminUID === adminUID) {
-            secretaryList.push({
-              id: childSnapshot.key,
-              ...data
-            });
-          }
-        });
-        
-        if (secretaryList.length > 0) {
-          console.log(`Found ${secretaryList.length} secretaries:`, secretaryList);
-          setSecretaries(secretaryList);
-        } else {
-          console.log("No secretaries found for this admin");
-          setSecretaries([]);
-        }
-      } else {
-        console.log("No secretaries found at all");
-        setSecretaries([]);
-      }
-    } catch (error) {
-      console.error("Error fetching secretaries:", error);
-      setError("Failed to load secretary data. Please try again.");
-    }
-  };
-
-  const handleSelectSecretary = (secretary) => {
-    setSelectedSecretary(secretary);
-    setEditForm({
-      name: secretary.name || "",
-      email: secretary.email || "",
-      phone: secretary.phone || ""
-    });
-    setIsEditing(false);
-    setError("");
-    setSuccess("");
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
+    setSecretary(prevState => ({
+      ...prevState,
       [name]: value
     }));
   };
 
-  const handleEdit = () => {
-    if (!selectedSecretary) {
-      setError("No secretary selected");
-      return;
-    }
-    setIsEditing(true);
-    setError("");
-    setSuccess("");
+  // Generate a temporary password
+  const generateTemporaryPassword = () => {
+    // Generate a random password: "Temp" + 4 random digits + "!"
+    const randomDigits = Math.floor(1000 + Math.random() * 9000); // 4-digit number
+    const tempPassword = `Temp${randomDigits}!`;
+    setGeneratedPassword(tempPassword);
+    setSecretary(prevState => ({
+      ...prevState,
+      password: tempPassword,
+      confirmPassword: tempPassword
+    }));
+    return tempPassword;
   };
 
-  const handleAdd = () => {
-    navigate("/add-secretary");
+  const validateForm = () => {
+    if (!secretary.name.trim()) {
+      setError("Secretary name is required");
+      return false;
+    }
+    
+    if (!secretary.email.trim()) {
+      setError("Email is required");
+      return false;
+    }
+    
+    if (!secretary.password) {
+      setError("Password is required");
+      return false;
+    }
+    
+    if (secretary.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return false;
+    }
+    
+    if (secretary.password !== secretary.confirmPassword) {
+      setError("Passwords do not match");
+      return false;
+    }
+    
+    return true;
   };
 
-  const handleUpdate = async () => {
-    if (!selectedSecretary) {
-      setError("No secretary selected to update");
-      return;
-    }
-
-    if (!editForm.name || !editForm.email) {
-      setError("Name and email are required");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      // Update secretary via direct Firebase operation
-      await update(ref(db, `secretaries/${selectedSecretary.id}`), editForm);
-      
-      // Update the local state
-      const updatedSecretaries = secretaries.map(secretary => {
-        if (secretary.id === selectedSecretary.id) {
-          return {
-            ...secretary,
-            ...editForm
-          };
-        }
-        return secretary;
-      });
-
-      setSecretaries(updatedSecretaries);
-      setSelectedSecretary({
-        ...selectedSecretary,
-        ...editForm
-      });
-
-      setSuccess("Secretary information updated successfully");
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error updating secretary:", error);
-      setError("Failed to update secretary. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (selectedSecretary) {
-      setEditForm({
-        name: selectedSecretary.name || "",
-        email: selectedSecretary.email || "",
-        phone: selectedSecretary.phone || ""
-      });
-    }
-    setIsEditing(false);
-    setError("");
-    setSuccess("");
-  };
-
-  const handleDeleteSecretary = async () => {
-    if (!selectedSecretary) {
-      setError("No secretary selected to delete");
-      return;
-    }
-
-    // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete ${selectedSecretary.name}?`)) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      // Delete secretary directly from Firebase
-      await remove(ref(db, `secretaries/${selectedSecretary.id}`));
-      
-      // Update local state
-      setSecretaries(secretaries.filter(secretary => secretary.id !== selectedSecretary.id));
-      setSuccess("Secretary deleted successfully");
-      setSelectedSecretary(null);
-    } catch (error) {
-      console.error("Error deleting secretary:", error);
-      setError("Failed to delete secretary. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle password reset
-  const handleResetPassword = async () => {
-    if (!selectedSecretary || !selectedSecretary.email) {
-      setError("Secretary email not found");
+  const addSecretary = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    
+    if (!lawFirmAdmin) {
+      setError("Law firm admin data not loaded.");
       return;
     }
     
+    if (!adminCredentials.password) {
+      setError("Admin password is required to complete this action.");
+      return;
+    }
+  
     setIsLoading(true);
+    setError("");
+    
     try {
-      // Use Firebase's password reset functionality
-      await sendPasswordResetEmail(auth, selectedSecretary.email);
-      setSuccess(`Password reset email sent to ${selectedSecretary.email}`);
+      // Store admin information
+      const adminUser = auth.currentUser;
+      const adminUID = adminUser.uid;
+      const adminEmail = adminCredentials.email;
+      const adminPassword = adminCredentials.password;
+      const adminData = { ...lawFirmAdmin };
+      
+      // First, verify the admin password is correct by testing a sign-in
+      try {
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        // Password is correct, continue (still logged in as admin)
+      } catch (error) {
+        setError("Admin password is incorrect. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Create the secretary user
+      try {
+        // This will log out the admin and log in as the secretary
+        const userCredential = await createUserWithEmailAndPassword(
+          auth, 
+          secretary.email, 
+          secretary.password
+        );
+        
+        // Send verification email to the secretary
+        await sendEmailVerification(userCredential.user);
+        
+        const secretaryUID = userCredential.user.uid;
+        
+        // Save secretary data to database
+        await set(ref(db, `secretaries/${secretaryUID}`), {
+          name: secretary.name,
+          email: secretary.email,
+          phone: secretary.phone || "",
+          role: "secretary",
+          lawFirm: adminData.lawFirm,
+          adminUID: adminUID,
+          passwordChanged: generatedPassword ? false : true, // Track if using temp password
+          createdAt: new Date().toISOString()
+        });
+        
+        // Now sign back in as admin - this happens silently without a UI
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        
+        // Success! Admin is logged back in
+        setSuccess(true);
+        setSuccessMessage(`Secretary account created successfully! Verification email sent to ${secretary.email}.`);
+        
+        if (generatedPassword) {
+          setSuccessMessage(prev => prev + ` Temporary password: ${secretary.password}`);
+        }
+        
+        // Reset form after a short delay
+        setTimeout(() => {
+          setSecretary({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+          setAdminCredentials(prev => ({ ...prev, password: "" }));
+          setGeneratedPassword("");
+          
+          // Navigate back to secretary management
+          navigate("/secretary/manage");
+        }, 3000);
+        
+      } catch (error) {
+        // Try to sign back in as admin if something went wrong
+        try {
+          await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        } catch (e) {
+          // Handle re-login failure
+          console.error("Failed to sign back in as admin:", e);
+        }
+        
+        throw error; // Re-throw the original error
+      }
+      
     } catch (error) {
-      console.error("Error sending password reset:", error);
-      setError("Failed to send password reset email: " + error.message);
+      console.error("Error creating secretary account:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        setError("Email is already in use. Please try a different email address.");
+      } else {
+        setError(error.message || "Failed to create secretary account.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Render the empty state when no secretaries
-  const renderEmptyState = () => {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">👩‍💼</div>
-        <h3>No Secretaries Found</h3>
-        <p>You haven't added any secretaries to your law firm yet.</p>
-      </div>
-    );
-  };
-
-  // Render the select secretary state
-  const renderSelectState = () => {
-    return (
-      <div className="select-state">
-        <div className="select-icon">👩‍💼</div>
-        <h3>Select a Secretary</h3>
-        <p>Select a secretary from the list to view or edit their details.</p>
-      </div>
-    );
-  };
-
+  
   return (
-    <div className="container">
-      <div className="card">
-        <h1>Manage Secretaries</h1>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
-        {isLoading ? (
-          <div className="loading">Loading...</div>
-        ) : (
-          <div className="secretary-management">
-            <div className="secretary-sidebar">
-              <div className="sidebar-header">
-                <h3>Your Secretaries</h3>
-                <button className="btn add-btn" onClick={handleAdd}>Add New</button>
-              </div>
-              
-              <div className="secretary-list">
-                {secretaries.length === 0 ? (
-                  renderEmptyState()
-                ) : (
-                  secretaries.map(secretary => (
-                    <div 
-                      key={secretary.id} 
-                      className={`secretary-list-item ${selectedSecretary?.id === secretary.id ? 'selected' : ''}`}
-                      onClick={() => handleSelectSecretary(secretary)}
-                    >
-                      <div className="secretary-avatar">
-                        {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
-                      </div>
-                      <div className="secretary-list-info">
-                        <h3 className="secretary-list-name">{secretary.name}</h3>
-                        <p className="secretary-list-email">{secretary.email}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+    <FormLayout title="Add Secretary" backTo="/secretary/manage" backText="Back to Secretaries">
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{successMessage}</div>}
+      
+      {isLoading ? (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p className="loading-text">Creating secretary account...</p>
+        </div>
+      ) : (
+        <form onSubmit={addSecretary}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="name" className="required-field">Full Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={secretary.name}
+                onChange={handleChange}
+                placeholder="Enter secretary's full name"
+                required
+              />
             </div>
             
-            <div className="secretary-details">
-              {!selectedSecretary ? (
-                secretaries.length > 0 ? renderSelectState() : null
-              ) : isEditing ? (
-                <div className="secretary-edit-form">
-                  <h3>Edit Secretary</h3>
-                  <div className="form-group">
-                    <label htmlFor="name">Name *</label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={editForm.name}
-                      onChange={handleChange}
-                      placeholder="Secretary name"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="email">Email *</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={editForm.email}
-                      onChange={handleChange}
-                      placeholder="Email address"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="phone">Phone Number</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={editForm.phone}
-                      onChange={handleChange}
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  
-                  <div className="form-actions">
-                    <button className="btn primary-btn" onClick={handleUpdate}>
-                      Save Changes
-                    </button>
-                    <button className="btn secondary-btn" onClick={handleCancel}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="secretary-view">
-                  <div className="secretary-profile">
-                    <div className="secretary-avatar large">
-                      {selectedSecretary.name ? selectedSecretary.name.charAt(0).toUpperCase() : "S"}
-                    </div>
-                    <div className="secretary-info">
-                      <h3>{selectedSecretary.name}</h3>
-                      <p className="secretary-role">Secretary</p>
-                    </div>
-                  </div>
-                  
-                  <div className="info-section">
-                    <div className="info-row">
-                      <div className="info-label">Name:</div>
-                      <div className="info-value">{selectedSecretary.name}</div>
-                    </div>
-                    
-                    <div className="info-row">
-                      <div className="info-label">Email:</div>
-                      <div className="info-value">{selectedSecretary.email}</div>
-                    </div>
-                    
-                    <div className="info-row">
-                      <div className="info-label">Phone:</div>
-                      <div className="info-value">{selectedSecretary.phone || "Not provided"}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="action-buttons">
-                    <button className="btn primary-btn" onClick={handleEdit}>
-                      Edit Secretary
-                    </button>
-                    
-                    <button className="btn secondary-btn" onClick={handleResetPassword}>
-                      Reset Password
-                    </button>
-                    
-                    <button className="btn danger-btn" onClick={handleDeleteSecretary}>
-                      Delete Secretary
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="form-group">
+              <label htmlFor="email" className="required-field">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={secretary.email}
+                onChange={handleChange}
+                placeholder="Enter email address"
+                required
+              />
             </div>
           </div>
-        )}
-      </div>
-    </div>
+          
+          <div className="form-group">
+            <label htmlFor="phone">Phone Number</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={secretary.phone}
+              onChange={handleChange}
+              placeholder="Enter phone number"
+            />
+          </div>
+          
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="password" className="required-field">Password</label>
+              <div className="input-group">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={secretary.password}
+                  onChange={handleChange}
+                  placeholder="Enter password or generate one"
+                  required
+                />
+                <button 
+                  type="button" 
+                  className="generate-btn"
+                  onClick={generateTemporaryPassword}
+                >
+                  Generate
+                </button>
+              </div>
+              <small className="form-text">
+                {generatedPassword ? "A temporary password has been generated." : "You can enter a password or click Generate for a temporary one."}
+              </small>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="confirmPassword" className="required-field">Confirm Password</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={secretary.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm password"
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="adminPassword" className="required-field">Your Password</label>
+            <input
+              type="password"
+              id="adminPassword"
+              name="adminPassword"
+              value={adminCredentials.password}
+              onChange={(e) => setAdminCredentials(prev => ({ ...prev, password: e.target.value }))}
+              placeholder="Enter your admin password"
+              required
+            />
+            <small className="form-text">Required to create the secretary account</small>
+          </div>
+          
+          <div className="verification-note">
+            <p>A verification email will be sent to the secretary's email address. 
+              They must verify their email before logging in.</p>
+          </div>
+          
+          <div className="required-note">
+            <span>*</span> Required fields
+          </div>
+          
+          <div className="form-actions">
+            <button 
+              type="submit"
+              className="btn btn-primary"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Processing...' : 'Add Secretary'}
+            </button>
+            
+            <button 
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate("/secretary/manage")}
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </FormLayout>
   );
 };
 
-export default ManageSecretary;
+export default AddSecretary;

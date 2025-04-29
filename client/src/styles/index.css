@@ -4280,3 +4280,267 @@ button:disabled {
     flex-direction: column;
   }
 }
+/* Enhanced Form Styling for Law Firm Admin App */
+
+/* Form Container Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.form-card {
+  background-color: var(--background-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast);
+  margin-bottom: var(--spacing-xl);
+}
+
+.form-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Form Header Styling */
+.form-header {
+  position: relative;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--background-white);
+  text-align: center;
+}
+
+.form-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.form-content {
+  padding: var(--spacing-xl);
+}
+
+/* Back Button Styling */
+.back-button {
+  position: absolute;
+  top: 50%;
+  left: var(--spacing-md);
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-medium);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.back-button:hover {
+  color: var(--primary-color);
+}
+
+.icon-back {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+
+.icon-back::before {
+  content: "←";
+  font-size: var(--font-size-lg);
+}
+
+/* Form Grid Layout */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Form Group Styling */
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-dark);
+  font-size: var(--font-size-sm);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-md);
+  background-color: var(--background-white);
+  transition: all var(--transition-fast);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.1);
+}
+
+/* Help Text and Notes */
+.form-text {
+  color: var(--text-medium);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.required-field::after {
+  content: "*";
+  color: var(--error-color);
+  margin-left: 4px;
+}
+
+.required-note {
+  font-size: var(--font-size-xs);
+  color: var(--text-medium);
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.required-note span {
+  color: var(--error-color);
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xl);
+}
+
+.form-actions .btn {
+  min-width: 120px;
+}
+
+/* Enhanced Input Group for Password Fields */
+.input-group {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.input-group input {
+  flex: 1;
+}
+
+.input-group button {
+  padding: 0 var(--spacing-md);
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.input-group button:hover {
+  background-color: var(--secondary-dark);
+}
+
+/* Verification Note */
+.verification-note {
+  padding: var(--spacing-md);
+  background-color: var(--primary-light);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-xl);
+  border-left: 4px solid var(--primary-color);
+}
+
+.verification-note p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+/* Success Message */
+.success-message {
+  background-color: rgba(32, 191, 107, 0.1);
+  border-left: 4px solid var(--accent-color);
+  color: var(--accent-color);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.success-message::before {
+  content: "✓";
+  font-weight: bold;
+}
+
+/* Error Message */
+.error-message {
+  background-color: rgba(235, 59, 90, 0.1);
+  border-left: 4px solid var(--error-color);
+  color: var(--error-color);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.error-message::before {
+  content: "⚠️";
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.loading-text {
+  margin-top: var(--spacing-md);
+  color: var(--text-medium);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding: var(--spacing-md);
+  }
+  
+  .form-content {
+    padding: var(--spacing-md);
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .btn {
+    width: 100%;
+  }
+}
