@@ -64,41 +64,16 @@ const AddSecretary = () => {
     return tempPassword;
   };
 
-  const validateForm = () => {
-    if (!secretary.name.trim()) {
-      setError("Secretary name is required");
-      return false;
-    }
+  const addSecretary = async (e) => {
+    if (e) e.preventDefault();
     
-    if (!secretary.email.trim()) {
-      setError("Email is required");
-      return false;
-    }
-    
-    if (!secretary.password) {
-      setError("Password is required");
-      return false;
-    }
-    
-    if (secretary.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return false;
+    if (!secretary.name || !secretary.email) {
+      setError("Please fill in all required fields.");
+      return;
     }
     
     if (secretary.password !== secretary.confirmPassword) {
       setError("Passwords do not match");
-      return false;
-    }
-    
-    return true;
-  };
-
-  const addSecretary = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    
-    if (!lawFirmAdmin) {
-      setError("Law firm admin data not loaded.");
       return;
     }
     
@@ -256,12 +231,12 @@ const AddSecretary = () => {
               <label htmlFor="password" className="required-field">Password</label>
               <div className="input-group">
                 <input
-                  type="password"
+                  type="text" 
                   id="password"
-                  name="password"
-                  value={secretary.password}
+                  name="password" 
+                  placeholder="Leave blank to auto-generate" 
+                  value={secretary.password} 
                   onChange={handleChange}
-                  placeholder="Enter password or generate one"
                   required
                 />
                 <button 
@@ -272,9 +247,7 @@ const AddSecretary = () => {
                   Generate
                 </button>
               </div>
-              <small className="form-text">
-                {generatedPassword ? "A temporary password has been generated." : "You can enter a password or click Generate for a temporary one."}
-              </small>
+              <small className="form-text">If left blank, a temporary password will be generated.</small>
             </div>
             
             <div className="form-group">
