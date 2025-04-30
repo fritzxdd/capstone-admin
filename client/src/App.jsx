@@ -18,6 +18,7 @@ import EditLawyer from "./pages/Lawyers/EditLawyer";
 // Secretary Pages
 import ManageSecretary from "./pages/Secretary/ManageSecretary";
 import AddSecretary from "./pages/Secretary/AddSecretary";
+import EditSecretary from "./pages/Secretary/EditSecretary";
 
 // Legal Pages
 import PrivacyPolicy from "./pages/Legal/PrivacyPolicy";
@@ -136,6 +137,11 @@ const App = () => {
         <Route 
           path="/add-secretary" 
           element={user ? <AddSecretary /> : <Navigate to="/login" />} 
+        />
+        
+        <Route 
+          path="/secretary/edit/:id" 
+          element={user ? <EditSecretary /> : <Navigate to="/login" />} 
         />
         
         <Route 

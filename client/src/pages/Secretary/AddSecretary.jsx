@@ -3,48 +3,75 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "../../services/firebase";
+import Button from "../../components/UI/Button";
+import Card from "../../components/UI/Card";
+import Loading from "../../components/UI/Loading";
+import Toast from "../../components/UI/Toast";
 import FormLayout from "../../components/Layout/FormLayout";
 import "../../styles/index.css";
 
 const AddSecretary = () => {
   const navigate = useNavigate();
-  const [secretary, setSecretary] = useState({ 
-    name: "", 
-    email: "", 
-    phone: "", 
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
     password: "",
-    confirmPassword: "" 
+    confirmPassword: ""
   });
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
+  const [toast, setToast] = useState(null);
+  const [adminCredentials, setAdminCredentials] = useState({
+    email: "",
+    password: ""
+  });
   const [generatedPassword, setGeneratedPassword] = useState("");
 
+  // Display toast message
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  // Fetch admin data
   useEffect(() => {
     const fetchAdminData = async () => {
-      const user = auth.currentUser;
-      if (user) {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setError("User authentication required");
+          navigate("/login");
+          return;
+        }
+
         setAdminCredentials(prev => ({ ...prev, email: user.email }));
+        
         const adminRef = ref(db, `law_firm_admin/${user.uid}`);
         const snapshot = await get(adminRef);
+        
         if (snapshot.exists()) {
           setLawFirmAdmin(snapshot.val());
         } else {
           setError("Error: Law firm admin not found!");
           navigate("/");
         }
+      } catch (error) {
+        console.error("Error fetching admin data:", error);
+        setError("Failed to load admin data: " + error.message);
       }
     };
 
     fetchAdminData();
   }, [navigate]);
 
+  // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setSecretary(prevState => ({
+    setFormData(prevState => ({
       ...prevState,
       [name]: value
     }));
@@ -56,44 +83,79 @@ const AddSecretary = () => {
     const randomDigits = Math.floor(1000 + Math.random() * 9000); // 4-digit number
     const tempPassword = `Temp${randomDigits}!`;
     setGeneratedPassword(tempPassword);
-    setSecretary(prevState => ({
+    setFormData(prevState => ({
       ...prevState,
       password: tempPassword,
       confirmPassword: tempPassword
     }));
+    
     return tempPassword;
   };
 
-  const addSecretary = async (e) => {
-    if (e) e.preventDefault();
-    
-    if (!secretary.name || !secretary.email) {
-      setError("Please fill in all required fields.");
-      return;
+  // Validate form
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      setError("Secretary name is required");
+      return false;
     }
     
-    if (secretary.password !== secretary.confirmPassword) {
+    if (!formData.email.trim()) {
+      setError("Email is required");
+      return false;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return false;
+    }
+    
+    if (!formData.password) {
+      setError("Password is required");
+      return false;
+    }
+    
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return false;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
-      return;
+      return false;
     }
     
     if (!adminCredentials.password) {
-      setError("Admin password is required to complete this action.");
+      setError("Admin password is required to create a new secretary");
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Add secretary
+  const handleAddSecretary = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    if (!lawFirmAdmin) {
+      setError("Law firm admin data not loaded");
       return;
     }
-  
+    
     setIsLoading(true);
     setError("");
     
     try {
-      // Store admin information
+      // Store admin information for relogin
       const adminUser = auth.currentUser;
       const adminUID = adminUser.uid;
       const adminEmail = adminCredentials.email;
       const adminPassword = adminCredentials.password;
-      const adminData = { ...lawFirmAdmin };
       
-      // First, verify the admin password is correct by testing a sign-in
+      // First, verify the admin password is correct
       try {
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         // Password is correct, continue (still logged in as admin)
@@ -108,8 +170,8 @@ const AddSecretary = () => {
         // This will log out the admin and log in as the secretary
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
-          secretary.email, 
-          secretary.password
+          formData.email, 
+          formData.password
         );
         
         // Send verification email to the secretary
@@ -119,65 +181,62 @@ const AddSecretary = () => {
         
         // Save secretary data to database
         await set(ref(db, `secretaries/${secretaryUID}`), {
-          name: secretary.name,
-          email: secretary.email,
-          phone: secretary.phone || "",
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
           role: "secretary",
-          lawFirm: adminData.lawFirm,
+          lawFirm: lawFirmAdmin.lawFirm,
           adminUID: adminUID,
           passwordChanged: generatedPassword ? false : true, // Track if using temp password
           createdAt: new Date().toISOString()
         });
         
-        // Now sign back in as admin - this happens silently without a UI
+        // Now sign back in as admin
         await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         
-        // Success! Admin is logged back in
-        setSuccess(true);
-        setSuccessMessage(`Secretary account created successfully! Verification email sent to ${secretary.email}.`);
-        
-        if (generatedPassword) {
-          setSuccessMessage(prev => prev + ` Temporary password: ${secretary.password}`);
+        // Log successful creation
+        if (analytics) {
+          logEvent(analytics, "create_secretary", {
+            admin_id: adminUID
+          });
         }
         
-        // Reset form after a short delay
+        // Show success message
+        showToast("Secretary created successfully! Verification email sent.", 'success');
+        
+        // Navigate back to secretary management after a short delay
         setTimeout(() => {
-          setSecretary({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
-          setAdminCredentials(prev => ({ ...prev, password: "" }));
-          setGeneratedPassword("");
-          
-          // Navigate back to secretary management
           navigate("/secretary/manage");
-        }, 3000);
+        }, 1500);
         
       } catch (error) {
         // Try to sign back in as admin if something went wrong
         try {
           await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
         } catch (e) {
-          // Handle re-login failure
           console.error("Failed to sign back in as admin:", e);
         }
         
-        throw error; // Re-throw the original error
+        // Handle specific errors
+        if (error.code === 'auth/email-already-in-use') {
+          setError("Email is already in use. Please use a different email address.");
+        } else {
+          setError(error.message || "Failed to create secretary account");
+        }
       }
-      
     } catch (error) {
       console.error("Error creating secretary account:", error);
-      if (error.code === 'auth/email-already-in-use') {
-        setError("Email is already in use. Please try a different email address.");
-      } else {
-        setError(error.message || "Failed to create secretary account.");
-      }
+      setError("Failed to create secretary: " + error.message);
+      showToast("Failed to create secretary", 'error');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <FormLayout title="Add Secretary" backTo="/secretary/manage" backText="Back to Secretaries">
+      {toast && <Toast message={toast.message} type={toast.type} />}
       {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{successMessage}</div>}
       
       {isLoading ? (
         <div className="loading-state">
@@ -185,7 +244,7 @@ const AddSecretary = () => {
           <p className="loading-text">Creating secretary account...</p>
         </div>
       ) : (
-        <form onSubmit={addSecretary}>
+        <form onSubmit={handleAddSecretary}>
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="name" className="required-field">Full Name</label>
@@ -193,7 +252,7 @@ const AddSecretary = () => {
                 type="text"
                 id="name"
                 name="name"
-                value={secretary.name}
+                value={formData.name}
                 onChange={handleChange}
                 placeholder="Enter secretary's full name"
                 required
@@ -206,7 +265,7 @@ const AddSecretary = () => {
                 type="email"
                 id="email"
                 name="email"
-                value={secretary.email}
+                value={formData.email}
                 onChange={handleChange}
                 placeholder="Enter email address"
                 required
@@ -220,7 +279,7 @@ const AddSecretary = () => {
               type="tel"
               id="phone"
               name="phone"
-              value={secretary.phone}
+              value={formData.phone}
               onChange={handleChange}
               placeholder="Enter phone number"
             />
@@ -234,9 +293,9 @@ const AddSecretary = () => {
                   type="text" 
                   id="password"
                   name="password" 
-                  placeholder="Leave blank to auto-generate" 
-                  value={secretary.password} 
+                  value={formData.password} 
                   onChange={handleChange}
+                  placeholder="Enter password or generate one"
                   required
                 />
                 <button 
@@ -247,7 +306,9 @@ const AddSecretary = () => {
                   Generate
                 </button>
               </div>
-              <small className="form-text">If left blank, a temporary password will be generated.</small>
+              <small className="form-text">
+                {generatedPassword ? "A temporary password has been generated." : "Password must be at least 6 characters."}
+              </small>
             </div>
             
             <div className="form-group">
@@ -256,7 +317,7 @@ const AddSecretary = () => {
                 type="password"
                 id="confirmPassword"
                 name="confirmPassword"
-                value={secretary.confirmPassword}
+                value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm password"
                 required
@@ -275,7 +336,7 @@ const AddSecretary = () => {
               placeholder="Enter your admin password"
               required
             />
-            <small className="form-text">Required to create the secretary account</small>
+            <small className="form-text">Your password is required to create the secretary account</small>
           </div>
           
           <div className="verification-note">
@@ -288,22 +349,22 @@ const AddSecretary = () => {
           </div>
           
           <div className="form-actions">
-            <button 
+            <Button 
+              variant="primary" 
               type="submit"
-              className="btn btn-primary"
               disabled={isLoading}
             >
               {isLoading ? 'Processing...' : 'Add Secretary'}
-            </button>
+            </Button>
             
-            <button 
+            <Button 
+              variant="secondary"
               type="button"
-              className="btn btn-secondary"
               onClick={() => navigate("/secretary/manage")}
               disabled={isLoading}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
