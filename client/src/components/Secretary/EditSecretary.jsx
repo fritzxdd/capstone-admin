@@ -5,10 +5,10 @@ import { ref, get, update, remove } from "firebase/database";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../services/firebase";
-import Button from "../../components/UI/Button";
-import Card from "../../components/UI/Card";
-import Loading from "../../components/UI/Loading";
-import Toast from "../../components/UI/Toast";
+import Button from "../UI/Button";
+import Card from "../UI/Card";
+import Loading from "../UI/Loading";
+import Toast from "../UI/Toast";
 import "../../styles/index.css";
 
 const EditSecretary = () => {
