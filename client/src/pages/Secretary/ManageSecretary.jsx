@@ -5,60 +5,12 @@ import { ref, onValue, remove } from "firebase/database";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../services/firebase";
-import Header from "../../components/Layout/Header";
 import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
+import { SecretaryItem } from "../../components/Secretary"; // Import from index
 import "../../styles/index.css";
-
-// Simple Secretary Item component
-const SecretaryItem = ({ secretary, isSelected, onClick }) => {
-  return (
-    <div 
-      className={`secretary-item ${isSelected ? 'selected' : ''}`}
-      onClick={() => onClick(secretary)}
-    >
-      <div className="secretary-avatar">
-        {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
-      </div>
-      
-      <div className="secretary-content">
-        <div className="secretary-header">
-          <h3 className="secretary-name">{secretary.name}</h3>
-          <span className="secretary-role">secretary</span>
-        </div>
-        
-        <div className="secretary-details">
-          <div className="secretary-info-item">
-            <span className="info-icon">✉️</span>
-            <span className="info-text">{secretary.email}</span>
-          </div>
-          
-          {secretary.phone && (
-            <div className="secretary-info-item">
-              <span className="info-icon">📞</span>
-              <span className="info-text">{secretary.phone}</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="secretary-actions">
-          <button 
-            className="action-btn edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.location.href = `/secretary/edit/${secretary.id}`;
-            }}
-            title="Edit Secretary"
-          >
-            ✏️
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const ManageSecretary = () => {
   const [secretaries, setSecretaries] = useState([]);
@@ -141,6 +93,7 @@ const ManageSecretary = () => {
 
   // Handle secretary selection
   const handleSelectSecretary = (secretary) => {
+    console.log("Secretary selected:", secretary); // Debug log
     setSelectedSecretary(secretary);
     
     // Log selection event
@@ -160,6 +113,7 @@ const ManageSecretary = () => {
   // Handle editing secretary
   const handleEditSecretary = () => {
     if (selectedSecretary) {
+      console.log("Navigating to edit secretary:", selectedSecretary.id); // Debug log
       navigate(`/secretary/edit/${selectedSecretary.id}`);
     }
   };
