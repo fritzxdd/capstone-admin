@@ -10,8 +10,55 @@ import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
-import { Secretary } from "../../components/Secretary";
 import "../../styles/index.css";
+
+// Simple Secretary Item component
+const SecretaryItem = ({ secretary, isSelected, onClick }) => {
+  return (
+    <div 
+      className={`secretary-item ${isSelected ? 'selected' : ''}`}
+      onClick={() => onClick(secretary)}
+    >
+      <div className="secretary-avatar">
+        {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
+      </div>
+      
+      <div className="secretary-content">
+        <div className="secretary-header">
+          <h3 className="secretary-name">{secretary.name}</h3>
+          <span className="secretary-role">secretary</span>
+        </div>
+        
+        <div className="secretary-details">
+          <div className="secretary-info-item">
+            <span className="info-icon">✉️</span>
+            <span className="info-text">{secretary.email}</span>
+          </div>
+          
+          {secretary.phone && (
+            <div className="secretary-info-item">
+              <span className="info-icon">📞</span>
+              <span className="info-text">{secretary.phone}</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="secretary-actions">
+          <button 
+            className="action-btn edit"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = `/secretary/edit/${secretary.id}`;
+            }}
+            title="Edit Secretary"
+          >
+            ✏️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ManageSecretary = () => {
   const [secretaries, setSecretaries] = useState([]);
@@ -231,6 +278,7 @@ const ManageSecretary = () => {
 
     return (
       <div className="secretary-management-layout">
+        {/* Secretary List Sidebar */}
         <div className="secretary-sidebar">
           <div className="secretary-sidebar-header">
             <h3>Secretaries</h3>
@@ -246,16 +294,17 @@ const ManageSecretary = () => {
           
           <div className="secretary-list-container">
             {secretaries.map(secretary => (
-              <Secretary
+              <SecretaryItem
                 key={secretary.id}
                 secretary={secretary}
-                onSelect={handleSelectSecretary}
                 isSelected={selectedSecretary && selectedSecretary.id === secretary.id}
+                onClick={handleSelectSecretary}
               />
             ))}
           </div>
         </div>
         
+        {/* Secretary Detail Panel */}
         <div className="secretary-detail-panel">
           {selectedSecretary ? (
             <div className="secretary-details">
@@ -283,16 +332,21 @@ const ManageSecretary = () => {
                 </div>
               </div>
               
-              {selectedSecretary.assignedLawyers && selectedSecretary.assignedLawyers.length > 0 && (
-                <div className="info-section">
-                  <h3 className="section-title">Assigned Lawyers</h3>
-                  <ul className="assigned-lawyers-list">
-                    {selectedSecretary.assignedLawyers.map(lawyer => (
-                      <li key={lawyer.id}>{lawyer.name}</li>
-                    ))}
-                  </ul>
+              <div className="info-section">
+                <h3 className="section-title">Law Firm Association</h3>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">Law Firm:</span>
+                    <span className="info-value">{selectedSecretary.lawFirm || "Not specified"}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Created:</span>
+                    <span className="info-value">
+                      {selectedSecretary.createdAt ? new Date(selectedSecretary.createdAt).toLocaleDateString() : "Unknown"}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
               
               <div className="secretary-actions-container">
                 <Button 
@@ -320,9 +374,9 @@ const ManageSecretary = () => {
             </div>
           ) : (
             <div className="empty-secretary-detail">
-              <div className="empty-icon select-icon"></div>
+              <div className="empty-icon select-icon">👆</div>
               <h3>No Secretary Selected</h3>
-              <p>Select a secretary from the list or add a new one.</p>
+              <p>Select a secretary from the list to view details</p>
             </div>
           )}
         </div>
@@ -332,42 +386,40 @@ const ManageSecretary = () => {
 
   return (
     <div className="app-container">
-      <Header user={auth.currentUser} onLogout={() => signOut(auth)} />
+      {toast && <Toast message={toast.message} type={toast.type} />}
       
-      <div className="app-content">
-        {toast && <Toast message={toast.message} type={toast.type} />}
-        
-        {/* Delete Confirmation Modal */}
-        {confirmDelete && selectedSecretary && (
-          <div className="modal-overlay">
-            <div className="modal-container">
-              <div className="modal-header">
-                <h3>Confirm Deletion</h3>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to delete secretary <strong>{selectedSecretary.name}</strong>?</p>
-                <p className="warning-text">This action cannot be undone.</p>
-              </div>
-              <div className="modal-footer">
-                <Button 
-                  variant="danger" 
-                  onClick={handleConfirmDelete}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Deleting..." : "Delete Secretary"}
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={handleCancelDelete}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-              </div>
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && selectedSecretary && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h3>Confirm Deletion</h3>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to delete secretary <strong>{selectedSecretary.name}</strong>?</p>
+              <p className="warning-text">This action cannot be undone.</p>
+            </div>
+            <div className="modal-footer">
+              <Button 
+                variant="danger" 
+                onClick={handleConfirmDelete}
+                disabled={isLoading}
+              >
+                {isLoading ? "Deleting..." : "Delete Secretary"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={handleCancelDelete}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
-        )}
-        
+        </div>
+      )}
+      
+      <main className="app-content">
         <Card className="secretary-management-card">
           <div className="card-header">
             <h2 className="card-title">
@@ -381,7 +433,7 @@ const ManageSecretary = () => {
             {renderContent()}
           </div>
         </Card>
-      </div>
+      </main>
     </div>
   );
 };
