@@ -18,7 +18,8 @@ import EditLawyer from "./pages/Lawyers/EditLawyer";
 // Secretary Pages
 import ManageSecretary from "./pages/Secretary/ManageSecretary";
 import AddSecretary from "./pages/Secretary/AddSecretary";
-import EditSecretary from "./pages/Secretary/EditSecretary";
+// Comment out EditSecretary import until the file exists
+// import EditSecretary from "./pages/Secretary/EditSecretary";
 
 // Legal Pages
 import PrivacyPolicy from "./pages/Legal/PrivacyPolicy";
@@ -139,10 +140,11 @@ const App = () => {
           element={user ? <AddSecretary /> : <Navigate to="/login" />} 
         />
         
-        <Route 
+        {/* Comment out the EditSecretary route until the file exists */}
+        {/* <Route 
           path="/secretary/edit/:id" 
           element={user ? <EditSecretary /> : <Navigate to="/login" />} 
-        />
+        /> */}
         
         <Route 
           path="/privacy" 

@@ -430,3 +430,5 @@ const EditSecretary = () => {
     </div>
   );
 };
+
+export default EditSecretary;
