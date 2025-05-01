@@ -2905,14 +2905,14 @@ a:hover {
 }
 
 .stat-icon {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: var(--border-radius-md);
   margin-right: var(--spacing-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem; /* Changed from variable to fixed size */
+  font-size: 1rem; /* Further reduced size */
 }
 
 .lawyers-icon {
