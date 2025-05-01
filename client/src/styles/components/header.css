@@ -80,20 +80,50 @@
   }
   
   /* Navigation Icons */
-  .nav-icon {
-    margin-right: var(--spacing-sm);
-    width: 20px;
-    height: 20px;
-    display: inline-block;
-  }
-  
-  .dashboard-icon::before { content: '📊'; }
-  .lawyer-icon::before { content: '👩‍⚖️'; }
-  .secretary-icon::before { content: '👩‍💼'; }
-  .settings-icon::before { content: '⚙️'; }
-  .subscription-icon::before { content: '💳'; }
-  .privacy-icon::before { content: '🔒'; }
-  .logout-icon::before { content: '🚪'; }
+.nav-icon {
+  margin-right: var(--spacing-sm);
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  position: relative;
+}
+
+/* Fix for the icons - need to add proper display properties */
+.dashboard-icon::before,
+.lawyer-icon::before,
+.secretary-icon::before,
+.settings-icon::before,
+.subscription-icon::before,
+.privacy-icon::before,
+.logout-icon::before,
+.dropdown-icon::before {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: middle;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  width: 20px;
+  height: 20px;
+  text-align: center;
+}
+
+.dashboard-icon::before { content: '📊'; }
+.lawyer-icon::before { content: '👩‍⚖️'; }
+.secretary-icon::before { content: '👩‍💼'; }
+.settings-icon::before { content: '⚙️'; }
+.subscription-icon::before { content: '💳'; }
+.privacy-icon::before { content: '🔒'; }
+.logout-icon::before { content: '🚪'; }
+
+/* Optional: Add specific font for better emoji rendering */
+.nav-icon::before,
+.dropdown-icon::before {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
   
   /* Dropdown */
   .dropdown {
