@@ -1,0 +1,497 @@
+/* styles/pages/payments.css */
+
+/* Plans and Subscriptions */
+.plans-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: var(--spacing-xl);
+  }
+  
+  .plans-container .title {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
+  }
+  
+  .plan-card {
+    position: relative;
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    transition: all var(--transition-fast);
+    border: 2px solid transparent;
+  }
+  
+  .plan-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .plan-card:nth-child(3) {
+    border-color: var(--secondary-color);
+  }
+  
+  .plan-card h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+    color: var(--primary-color);
+  }
+  
+  .price {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-dark);
+  }
+  
+  .description {
+    color: var(--text-medium);
+    margin-bottom: var(--spacing-xl);
+    flex-grow: 1;
+  }
+  
+  .tag {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .subscribe-btn {
+    padding: 0.75rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    width: 100%;
+  }
+  
+  .subscribe-btn:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .plan-card.recommended {
+    border: 2px solid var(--accent-color);
+    transform: scale(1.05);
+  }
+  
+  .plan-card.recommended .tag {
+    background-color: var(--accent-color);
+  }
+  
+  .plan-card.recommended .subscribe-btn {
+    background-color: var(--accent-color);
+  }
+  
+  .plan-card.recommended .subscribe-btn:hover {
+    background-color: var(--accent-color-hover);
+  }
+  
+  .payment-method-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--spacing-xl);
+  }
+  
+  .payment-method-container h2 {
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+  }
+  
+  .selected-plan-summary {
+    background-color: var(--background-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    border-left: 4px solid var(--primary-color);
+  }
+  
+  .selected-plan-summary h3 {
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .change-plan-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-color);
+    cursor: pointer;
+    font-weight: 500;
+    margin-top: var(--spacing-sm);
+  }
+  
+  .payment-methods {
+    display: grid;
+    gap: var(--spacing-lg);
+  }
+  
+  .payment-method-btn {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-lg);
+    background-color: var(--background-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+  }
+  
+  .payment-method-btn:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .payment-method-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: var(--spacing-lg);
+  }
+  
+  .payment-method-icon img {
+    max-width: 100%;
+    max-height: 100%;
+  }
+  
+  .payment-method-text {
+    flex: 1;
+  }
+  
+  .payment-method-text h3 {
+    margin-bottom: var(--spacing-xs);
+    font-weight: 600;
+  }
+  
+  .payment-method-text p {
+    color: var(--text-medium);
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+  
+  /* Subscription Status */
+  .subscription-status-card {
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid var(--primary-color);
+    transition: all var(--transition-fast);
+  }
+  
+  .subscription-status-card.expired {
+    border-left-color: var(--error-color);
+    background-color: rgba(235, 59, 90, 0.05);
+  }
+  
+  .subscription-info {
+    flex: 1;
+  }
+  
+  .subscription-info h3 {
+    margin-bottom: var(--spacing-sm);
+    color: var(--primary-color);
+    font-weight: 600;
+  }
+  
+  .subscription-info.expired h3 {
+    color: var(--error-color);
+  }
+  
+  .subscription-detail {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+    gap: var(--spacing-sm);
+  }
+  
+  .detail-label {
+    font-weight: 500;
+    color: var(--text-medium);
+    min-width: 90px;
+  }
+  
+  .detail-value {
+    color: var(--text-dark);
+  }
+  
+  .detail-value.highlight {
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+  
+  .subscription-info.expired .detail-value.highlight {
+    color: var(--error-color);
+  }
+  
+  .subscription-message {
+    margin-top: var(--spacing-sm);
+    color: var(--text-medium);
+    font-size: var(--font-size-sm);
+  }
+  
+  .subscription-message.error {
+    color: var(--error-color);
+  }
+  
+  .subscription-cta {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-md);
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    margin-left: var(--spacing-lg);
+  }
+  
+  .subscription-cta:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .subscription-cta.secondary {
+    background-color: var(--background-light);
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+  }
+  
+  .subscription-cta.secondary:hover {
+    background-color: var(--border-color);
+  }
+  
+  .expiry-notice {
+    background-color: rgba(235, 59, 90, 0.1);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    border-left: 4px solid var(--error-color);
+  }
+  
+  .expiry-notice h3 {
+    color: var(--error-color);
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  /* Payment Success Page */
+  .success-page-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--background-light);
+    padding: var(--spacing-xl);
+  }
+  
+  .success-card {
+    max-width: 600px;
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-xl);
+    text-align: center;
+  }
+  
+  .success-icon {
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .check-icon svg {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .success-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .error-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--error-color);
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .order-details {
+    background-color: var(--background-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    text-align: left;
+  }
+  
+  .order-details h2 {
+    color: var(--primary-color);
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .detail-row {
+    display: flex;
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .status-success {
+    color: var(--accent-color);
+    font-weight: 600;
+  }
+  
+  .next-steps {
+    margin-bottom: var(--spacing-xl);
+    text-align: left;
+  }
+  
+  .next-steps h3 {
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .next-steps ul {
+    padding-left: var(--spacing-xl);
+  }
+  
+  .next-steps li {
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+  }
+  
+  .primary-button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+  
+  .primary-button:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .secondary-button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--background-light);
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+  
+  .secondary-button:hover {
+    background-color: var(--border-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* FAQ Section */
+  .faq-section {
+    margin-top: var(--spacing-2xl);
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid var(--border-color);
+  }
+  
+  .faq-section h2 {
+    margin-bottom: var(--spacing-xl);
+    text-align: center;
+    color: var(--primary-color);
+  }
+  
+  .faq-item {
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .faq-item h3 {
+    margin-bottom: var(--spacing-md);
+    color: var(--primary-color);
+    font-weight: 600;
+  }
+  
+  .faq-item p {
+    color: var(--text-medium);
+    margin: 0;
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .plans-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .subscription-status-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .subscription-cta {
+      margin-left: 0;
+      margin-top: var(--spacing-md);
+      width: 100%;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .plans-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+    }
+    
+    .success-card {
+      padding: var(--spacing-md);
+    }
+  }

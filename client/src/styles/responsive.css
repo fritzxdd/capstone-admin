@@ -1,0 +1,321 @@
+/* styles/responsive.css */
+
+/* Responsive breakpoints */
+
+/* Large devices (desktops, less than 1200px) */
+@media (max-width: 1199.98px) {
+    .container {
+      max-width: 960px;
+    }
+  }
+  
+  /* Medium devices (tablets, less than 992px) */
+  @media (max-width: 991.98px) {
+    .container {
+      max-width: 720px;
+    }
+    
+    .stats-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-lg);
+    }
+    
+    .plans-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .register-card {
+      flex-direction: column;
+    }
+    
+    .registration-description-frame {
+      padding: var(--spacing-lg);
+    }
+    
+    .register-logo-side {
+      display: flex;
+      justify-content: center;
+      padding: var(--spacing-lg);
+    }
+    
+    .lawyer-form-layout {
+      grid-template-columns: 1fr;
+    }
+    
+    .lawyer-image-section {
+      margin-bottom: var(--spacing-xl);
+    }
+  }
+  
+  /* Small devices (landscape phones, less than 768px) */
+  @media (max-width: 767.98px) {
+    .container {
+      max-width: 540px;
+    }
+    
+    :root {
+      --header-height: 3.5rem;
+    }
+    
+    .login-page {
+      flex-direction: column;
+    }
+    
+    .login-left {
+      max-width: 100%;
+      padding: var(--spacing-lg);
+    }
+    
+    .login-right {
+      display: none;
+    }
+    
+    .mobile-menu-button {
+      display: block;
+      margin-left: auto;
+    }
+    
+    .header-nav {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      right: 0;
+      background-color: var(--primary-color);
+      flex-direction: column;
+      padding: var(--spacing-md);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: all var(--transition-normal);
+      align-items: stretch;
+      z-index: 40;
+    }
+    
+    .header-nav.mobile-open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .nav-link, .dropdown-toggle {
+      justify-content: flex-start;
+      padding: var(--spacing-md);
+      height: auto;
+    }
+    
+    .nav-link.active::after {
+      display: none;
+    }
+    
+    .dropdown-menu {
+      position: relative;
+      width: 100%;
+      top: 0;
+      margin-top: var(--spacing-sm);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .dropdown-item {
+      color: white;
+    }
+    
+    .dropdown-item:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .app-content {
+      padding: var(--spacing-md);
+    }
+    
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+    }
+    
+    .plans-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .secretary-container,
+    .lawyer-container,
+    .profile-card {
+      padding: var(--spacing-md);
+    }
+    
+    .detail-label {
+      width: 120px;
+    }
+    
+    .subscription-status-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .subscription-cta {
+      margin-left: 0;
+      margin-top: var(--spacing-md);
+      width: 100%;
+    }
+    
+    .toast-notification {
+      width: calc(100% - var(--spacing-lg) * 2);
+      max-width: none;
+      min-width: 0;
+    }
+    
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .form-actions .btn {
+      width: 100%;
+    }
+    
+    .secretary-management-layout {
+      flex-direction: column;
+      height: auto;
+      max-height: none;
+    }
+    
+    .secretary-sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--border-color);
+      max-height: 300px;
+    }
+    
+    .secretary-detail-panel {
+      padding: var(--spacing-md);
+    }
+    
+    .post-success-actions {
+      flex-direction: column;
+    }
+  }
+  
+  /* Extra small devices (portrait phones, less than 576px) */
+  @media (max-width: 575.98px) {
+    .container {
+      width: 100%;
+      padding-right: var(--spacing-md);
+      padding-left: var(--spacing-md);
+    }
+    
+    .stats-cards {
+      grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+      padding: var(--spacing-md);
+    }
+    
+    .detail-row {
+      flex-direction: column;
+    }
+    
+    .detail-label {
+      width: 100%;
+      margin-bottom: var(--spacing-xs);
+    }
+    
+    .profile-actions {
+      flex-direction: column;
+    }
+    
+    .success-card {
+      padding: var(--spacing-md);
+    }
+    
+    .secretary-card {
+      margin: 1rem;
+    }
+    
+    .container {
+      padding: var(--spacing-md);
+    }
+    
+    .form-content {
+      padding: var(--spacing-md);
+    }
+    
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .view-mode-actions {
+      flex-direction: column;
+    }
+    
+    .confirm-actions {
+      flex-direction: column;
+    }
+    
+    .modal-container {
+      margin: var(--spacing-md);
+    }
+    
+    .secretary-item {
+      flex-direction: column;
+      text-align: center;
+    }
+    
+    .secretary-avatar {
+      margin-bottom: var(--spacing-sm);
+    }
+    
+    .secretary-header {
+      justify-content: center;
+    }
+  }
+  
+  /* Tablet landscape orientation */
+  @media (min-width: 768px) and (max-width: 991.98px) and (orientation: landscape) {
+    .header-nav {
+      display: flex;
+      position: static;
+      flex-direction: row;
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .mobile-menu-button {
+      display: none;
+    }
+  }
+  
+  /* Print styles */
+  @media print {
+    .app-header, .sidebar, .mobile-menu, .dropdown-menu {
+      display: none !important;
+    }
+    
+    .app-content {
+      padding: 0;
+      margin: 0;
+    }
+    
+    .card {
+      box-shadow: none;
+      border: 1px solid #ddd;
+    }
+    
+    .btn {
+      display: none;
+    }
+  }

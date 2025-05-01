@@ -1,0 +1,309 @@
+/* styles/components/cards.css */
+
+/* Card Component */
+.card {
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    transition: box-shadow var(--transition-fast);
+  }
+  
+  .card:hover {
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .card-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-white);
+  }
+  
+  .card-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .header-underline {
+    margin-top: var(--spacing-sm);
+    height: 3px;
+    width: 40px;
+    background-color: var(--primary-color);
+  }
+  
+  .card-subtitle {
+    color: var(--text-medium);
+    margin: var(--spacing-xs) 0 0 0;
+    font-size: var(--font-size-sm);
+  }
+  
+  .card-content {
+    padding: var(--spacing-lg);
+  }
+  
+  .card-footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    background-color: var(--background-light);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+  }
+  
+  /* Stat Card */
+  .stat-card {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-lg);
+    background-color: var(--background-white);
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    border-left: 4px solid transparent;
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .stat-card.lawyers-icon {
+    border-left-color: var(--primary-color);
+  }
+  
+  .stat-card:nth-child(2) {
+    border-left-color: var(--accent-color);
+  }
+  
+  .stat-card:nth-child(3) {
+    border-left-color: var(--warning-color);
+  }
+  
+  .stat-card:nth-child(4) {
+    border-left-color: var(--secondary-color);
+  }
+  
+  .stat-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--border-radius-md);
+    margin-right: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+  
+  .lawyers-icon {
+    background-color: rgba(10, 61, 98, 0.1);
+    color: var(--primary-color);
+  }
+  
+  .lawyers-icon::before {
+    content: '👨‍⚖️';
+    font-size: 1.5rem;
+  }
+  
+  .appointments-icon {
+    background-color: rgba(32, 191, 107, 0.1);
+    color: var(--accent-color);
+  }
+  
+  .appointments-icon::before {
+    content: '📅';
+    font-size: 1.5rem;
+  }
+  
+  .pending-icon {
+    background-color: rgba(247, 183, 49, 0.1);
+    color: var(--warning-color);
+  }
+  
+  .pending-icon::before {
+    content: '⏳';
+    font-size: 1.5rem;
+  }
+  
+  .completed-icon {
+    background-color: rgba(56, 103, 214, 0.1);
+    color: var(--secondary-color);
+  }
+  
+  .completed-icon::before {
+    content: '✅';
+    font-size: 1.5rem;
+  }
+  
+  .stat-content {
+    flex-grow: 1;
+  }
+  
+  .stat-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-medium);
+    margin-bottom: var(--spacing-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .stat-value {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0;
+  }
+  
+  /* Plan Card */
+  .plan-card {
+    position: relative;
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    transition: all var(--transition-fast);
+    border: 2px solid transparent;
+  }
+  
+  .plan-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .plan-card:nth-child(3) {
+    border-color: var(--secondary-color);
+  }
+  
+  .plan-card h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+    color: var(--primary-color);
+  }
+  
+  .price {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-dark);
+  }
+  
+  .description {
+    color: var(--text-medium);
+    margin-bottom: var(--spacing-xl);
+    flex-grow: 1;
+  }
+  
+  .tag {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .plan-card.recommended {
+    border: 2px solid var(--accent-color);
+    transform: scale(1.05);
+  }
+  
+  .plan-card.recommended .tag {
+    background-color: var(--accent-color);
+  }
+  
+  .plan-card.recommended .subscribe-btn {
+    background-color: var(--accent-color);
+  }
+  
+  .plan-card.recommended .subscribe-btn:hover {
+    background-color: var(--accent-color-hover);
+  }
+  
+  /* Profile Card */
+  .profile-card {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .profile-header-container {
+    margin-bottom: var(--spacing-xl);
+    position: relative;
+  }
+  
+  .profile-header-title {
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+    text-align: center;
+  }
+  
+  .profile-header-underline {
+    height: 3px;
+    width: 60px;
+    background-color: var(--primary-color);
+    margin: 0 auto;
+  }
+  
+  /* Secretary Card */
+  .secretary-card {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* Subscription Status Card */
+  .subscription-status-card {
+    background-color: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid var(--primary-color);
+    transition: all var(--transition-fast);
+  }
+  
+  .subscription-status-card.expired {
+    border-left-color: var(--error-color);
+    background-color: rgba(235, 59, 90, 0.05);
+  }
+  
+  .subscription-status-card.skeleton {
+    padding: var(--spacing-xl);
+    min-height: 100px;
+  }
+  
+  .skeleton-line {
+    height: 20px;
+    background-color: var(--background-light);
+    border-radius: var(--border-radius-sm);
+    margin-bottom: var(--spacing-md);
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.6; }
+  }

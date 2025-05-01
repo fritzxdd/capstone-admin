@@ -1,0 +1,101 @@
+/* styles/pages/dashboard.css */
+
+/* Dashboard specific styles */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+  }
+  
+  .dashboard-title {
+    margin-bottom: 0;
+    font-weight: 700;
+    color: var(--primary-color);
+    letter-spacing: -0.03em;
+  }
+  
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--spacing-xl);
+  }
+  
+  /* Empty States */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    text-align: center;
+  }
+  
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    background-color: var(--background-light);
+    border-radius: var(--border-radius-round);
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+  }
+  
+  .lawyer-empty-icon::before {
+    content: '👨‍⚖️';
+    font-size: 2.5rem;
+  }
+  
+  .analytics-empty-icon::before {
+    content: '📊';
+    font-size: 2.5rem;
+  }
+  
+  .select-icon::before {
+    content: '👆';
+    font-size: 2.5rem;
+  }
+  
+  /* Card-specific styles for Dashboard */
+  .lawyers-card,
+  .analytics-card {
+    background: var(--background-white);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-lg);
+    height: 100%;
+  }
+  
+  /* Stats Cards Grid */
+  .stats-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+  }
+  
+  /* Responsive dashboard grid */
+  @media (max-width: 991.98px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-lg);
+    }
+    
+    .stats-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 767.98px) {
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+    
+    .stats-cards {
+      grid-template-columns: 1fr;
+    }
+  }
