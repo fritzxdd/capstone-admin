@@ -2912,6 +2912,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.5rem; /* Changed from variable to fixed size */
 }
 
 .lawyers-icon {
