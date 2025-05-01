@@ -1,7 +1,7 @@
 /* Main index.css - Imports all CSS modules */
 
 /* 1. Variables and Reset - Must be first */
-@import './variables.css';
+@import './variable.css';
 
 /* 2. Base styles */
 @import './typography.css';
