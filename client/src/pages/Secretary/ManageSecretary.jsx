@@ -55,13 +55,21 @@ const ManageSecretary = () => {
             snapshot.forEach((childSnapshot) => {
               const secretary = {
                 id: childSnapshot.key,
-                ...childSnapshot.val()
+                ...childSnapshot.val(),
+                // Ensure active property exists with default to true for backwards compatibility
+                active: childSnapshot.val().active !== false
               };
               
               // Filter to only show secretaries for the current admin
               if (secretary.adminUID === adminUID) {
                 secretariesData.push(secretary);
               }
+            });
+            
+            // Sort active secretaries first, then by name
+            secretariesData.sort((a, b) => {
+              if (a.active !== b.active) return b.active ? 1 : -1;
+              return a.name.localeCompare(b.name);
             });
             
             setSecretaries(secretariesData);
@@ -96,9 +104,6 @@ const ManageSecretary = () => {
 
     fetchSecretaries();
   }, []);
-
-  // Handler functions (all other handlers remain the same as original)
-  // ...
 
   // Handle secretary selection
   const handleSelectSecretary = (secretary) => {
@@ -203,50 +208,99 @@ const ManageSecretary = () => {
     }
   };
 
-  // Toggle delete confirmation
-  const handleDeleteClick = () => {
+  // Toggle disable/enable confirmation
+  const handleStatusClick = () => {
     setConfirmDelete(true);
   };
 
-  // Cancel delete
-  const handleCancelDelete = () => {
+  // Cancel disable/enable
+  const handleCancelStatusChange = () => {
     setConfirmDelete(false);
   };
 
-  // Confirm and process delete
-  const handleConfirmDelete = async () => {
+  // Disable secretary account
+  const handleDisableAccount = async () => {
     if (!selectedSecretary) return;
     
     setIsLoading(true);
     try {
-      // Delete the secretary from database
-      await remove(ref(db, `secretaries/${selectedSecretary.id}`));
+      // Update the secretary in database to set active status to false
+      await update(ref(db, `secretaries/${selectedSecretary.id}`), {
+        active: false,
+        disabledAt: new Date().toISOString()
+      });
       
-      // Log deletion
+      // Log action
       if (analytics) {
-        logEvent(analytics, "delete_secretary", { 
+        logEvent(analytics, "disable_secretary", { 
           secretary_id: selectedSecretary.id 
         });
       }
       
-      showToast(`Secretary ${selectedSecretary.name} deleted successfully`, 'success');
+      showToast(`Secretary ${selectedSecretary.name} has been disabled`, 'success');
       
-      // Clear selection and close modal
-      setSelectedSecretary(null);
+      // Close modal
       setConfirmDelete(false);
       
-      // Remove from local state
-      setSecretaries(secretaries.filter(s => s.id !== selectedSecretary.id));
+      // Update local state to reflect the change
+      const updatedSecretaries = secretaries.map(s => {
+        if (s.id === selectedSecretary.id) {
+          return { ...s, active: false };
+        }
+        return s;
+      });
       
-      // Update fetch status if no secretaries left
-      if (secretaries.length === 1) {
-        setFetchStatus("empty");
-      }
+      setSecretaries(updatedSecretaries);
+      setSelectedSecretary({...selectedSecretary, active: false});
+      
     } catch (error) {
-      console.error("Error deleting secretary:", error);
-      setError("Failed to delete secretary: " + error.message);
-      showToast("Failed to delete secretary", 'error');
+      console.error("Error disabling secretary:", error);
+      setError("Failed to disable secretary: " + error.message);
+      showToast("Failed to disable secretary", 'error');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Enable secretary account
+  const handleEnableAccount = async () => {
+    if (!selectedSecretary) return;
+    
+    setIsLoading(true);
+    try {
+      // Update the secretary in database to set active status to true
+      await update(ref(db, `secretaries/${selectedSecretary.id}`), {
+        active: true,
+        disabledAt: null,
+        reactivatedAt: new Date().toISOString()
+      });
+      
+      // Log action
+      if (analytics) {
+        logEvent(analytics, "enable_secretary", { 
+          secretary_id: selectedSecretary.id 
+        });
+      }
+      
+      showToast(`Secretary ${selectedSecretary.name} has been reactivated`, 'success');
+      
+      // Update local state to reflect the change
+      const updatedSecretaries = secretaries.map(s => {
+        if (s.id === selectedSecretary.id) {
+          return { ...s, active: true };
+        }
+        return s;
+      });
+      
+      setSecretaries(updatedSecretaries);
+      setSelectedSecretary({...selectedSecretary, active: true});
+      
+    } catch (error) {
+      console.error("Error enabling secretary:", error);
+      setError("Failed to enable secretary: " + error.message);
+      showToast("Failed to enable secretary", 'error');
+    }
+    finally {
       setIsLoading(false);
     }
   };
@@ -279,10 +333,11 @@ const ManageSecretary = () => {
   // Render secretary item
   const SecretaryItem = ({ secretary }) => {
     const isSelected = selectedSecretary && selectedSecretary.id === secretary.id;
+    const isDisabled = secretary.active === false;
     
     return (
       <div 
-        className={`secretary-item ${isSelected ? 'selected' : ''}`}
+        className={`secretary-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
         onClick={() => handleSelectSecretary(secretary)}
       >
         <div className="secretary-avatar">
@@ -292,7 +347,10 @@ const ManageSecretary = () => {
         <div className="secretary-content">
           <div className="secretary-header">
             <h3 className="secretary-name">{secretary.name}</h3>
-            <span className="secretary-role">secretary</span>
+            <div className="secretary-status">
+              <span className="secretary-role">secretary</span>
+              {isDisabled && <span className="status-badge disabled">Disabled</span>}
+            </div>
           </div>
           
           <div className="secretary-details">
@@ -373,137 +431,222 @@ const ManageSecretary = () => {
         </div>
         
         {/* Secretary Detail Panel */}
-        <div className="secretary-detail-panel">
-          {selectedSecretary ? (
-            <div className="secretary-details">
-              <div className="secretary-profile-header">
-                <div className="secretary-avatar large">
-                  {selectedSecretary.name ? selectedSecretary.name.charAt(0).toUpperCase() : "S"}
+<div className="secretary-detail-panel">
+  {selectedSecretary ? (
+    <div className="secretary-details">
+      <div className="secretary-profile-header">
+        <div className="secretary-avatar large">
+          {selectedSecretary.name ? selectedSecretary.name.charAt(0).toUpperCase() : "S"}
+        </div>
+        <div className="secretary-profile-info">
+          <div className="secretary-header-with-status">
+            <h2>{selectedSecretary.name}</h2>
+            {selectedSecretary.active === false && (
+              <span className="account-status-badge disabled">Account Disabled</span>
+            )}
+          </div>
+          <p className="secretary-role-badge">Secretary</p>
+          
+          {/* Status history section - Show when account was disabled/reactivated */}
+          {(selectedSecretary.disabledAt || selectedSecretary.reactivatedAt) && (
+            <div className="status-history">
+              {selectedSecretary.disabledAt && (
+                <div className="status-timestamp">
+                  <span className="timestamp-icon">⏱</span>
+                  <span className="timestamp-text">
+                    {selectedSecretary.active === false ? 'Disabled on: ' : 'Last disabled on: '}
+                    {new Date(selectedSecretary.disabledAt).toLocaleString()}
+                  </span>
                 </div>
-                <div className="secretary-profile-info">
-                  <h2>{selectedSecretary.name}</h2>
-                  <p className="secretary-role-badge">Secretary</p>
-                </div>
-              </div>
-              
-              {isEditing ? (
-                // Edit mode form
-                <div className="secretary-edit-form">
-                  <div className="form-group">
-                    <label htmlFor="name">Full Name</label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={editFormData.name}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="email">Email Address</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={editFormData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="phone">Phone Number</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={editFormData.phone}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  
-                  <div className="form-actions">
-                    <Button
-                      variant="success"
-                      onClick={handleSaveSecretary}
-                      disabled={isLoading}
-                    >
-                      Save Changes
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={handleCancelEdit}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                // View mode
-                <>
-                  <div className="info-section">
-                    <h3 className="section-title">Contact Information</h3>
-                    <div className="info-grid">
-                      <div className="info-item">
-                        <span className="info-label">Email:</span>
-                        <span className="info-value">{selectedSecretary.email}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Phone:</span>
-                        <span className="info-value">{selectedSecretary.phone || "Not provided"}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="info-section">
-                    <h3 className="section-title">Law Firm Association</h3>
-                    <div className="info-grid">
-                      <div className="info-item">
-                        <span className="info-label">Law Firm:</span>
-                        <span className="info-value">{selectedSecretary.lawFirm || "Not specified"}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Created:</span>
-                        <span className="info-value">
-                          {selectedSecretary.createdAt ? new Date(selectedSecretary.createdAt).toLocaleDateString() : "Unknown"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="secretary-actions-container">
-                    <Button 
-                      variant="primary" 
-                      onClick={handleEditToggle}
-                    >
-                      Edit Secretary
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      onClick={handleResetPassword}
-                    >
-                      Reset Password
-                    </Button>
-                    <Button 
-                      variant="danger" 
-                      onClick={handleDeleteClick}
-                    >
-                      Delete Secretary
-                    </Button>
-                  </div>
-                </>
               )}
-            </div>
-          ) : (
-            <div className="empty-secretary-detail">
-              <h3>No Secretary Selected</h3>
-              <p>Select a secretary from the list to view details</p>
+              {selectedSecretary.reactivatedAt && (
+                <div className="status-timestamp">
+                  <span className="timestamp-icon">🔄</span>
+                  <span className="timestamp-text">
+                    Reactivated on: {new Date(selectedSecretary.reactivatedAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
+      </div>
+      
+      {isEditing ? (
+        // Edit mode form
+        <div className="secretary-edit-form">
+          <div className="form-group">
+            <label htmlFor="name">Full Name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={editFormData.name}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={editFormData.email}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="phone">Phone Number</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={editFormData.phone}
+              onChange={handleInputChange}
+            />
+          </div>
+          
+          <div className="form-actions">
+            <Button
+              variant="success"
+              onClick={handleSaveSecretary}
+              disabled={isLoading}
+            >
+              Save Changes
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleCancelEdit}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        // View mode
+        <>
+          <div className="info-section">
+            <h3 className="section-title">Contact Information</h3>
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="info-label">Email:</span>
+                <span className="info-value">{selectedSecretary.email}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Phone:</span>
+                <span className="info-value">{selectedSecretary.phone || "Not provided"}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="info-section">
+            <h3 className="section-title">Law Firm Association</h3>
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="info-label">Law Firm:</span>
+                <span className="info-value">{selectedSecretary.lawFirm || "Not specified"}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Created:</span>
+                <span className="info-value">
+                  {selectedSecretary.createdAt ? new Date(selectedSecretary.createdAt).toLocaleDateString() : "Unknown"}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Account Status:</span>
+                <span className={`info-value ${selectedSecretary.active === false ? 'text-error' : 'text-success'}`}>
+                  {selectedSecretary.active === false ? 'Disabled' : 'Active'}
+                </span>
+              </div>
+              {selectedSecretary.active === false && selectedSecretary.disabledAt && (
+                <div className="info-item">
+                  <span className="info-label">Disabled On:</span>
+                  <span className="info-value">
+                    {new Date(selectedSecretary.disabledAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+              {selectedSecretary.reactivatedAt && (
+                <div className="info-item">
+                  <span className="info-label">Last Reactivated:</span>
+                  <span className="info-value">
+                    {new Date(selectedSecretary.reactivatedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="info-section">
+            <h3 className="section-title">Account Security</h3>
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="info-label">Password Status:</span>
+                <span className="info-value">
+                  {selectedSecretary.passwordChanged ? 'Custom Password' : 'Temporary Password'}
+                </span>
+              </div>
+              {selectedSecretary.lastLoginAt && (
+                <div className="info-item">
+                  <span className="info-label">Last Login:</span>
+                  <span className="info-value">
+                    {new Date(selectedSecretary.lastLoginAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="secretary-actions-container">
+            <Button 
+              variant="primary" 
+              onClick={handleEditToggle}
+              disabled={selectedSecretary.active === false}
+            >
+              Edit Secretary
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={handleResetPassword}
+              disabled={selectedSecretary.active === false}
+            >
+              Reset Password
+            </Button>
+            <Button 
+              variant={selectedSecretary.active ? "danger" : "success"} 
+              onClick={handleStatusClick}
+            >
+              {selectedSecretary.active ? "Disable Account" : "Enable Account"}
+            </Button>
+          </div>
+          
+          {selectedSecretary.active === false && (
+            <div className="disable-info-box">
+              <p className="disable-info-text">
+                <span className="info-icon">ℹ️</span>
+                This account is currently disabled. The secretary cannot log in until the account is re-enabled.
+                All secretary data is preserved.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  ) : (
+    <div className="empty-secretary-detail">
+      <div className="empty-icon">
+        <span>🔍</span>
+      </div>
+      <h3>No Secretary Selected</h3>
+      <p>Select a secretary from the list to view details</p>
+    </div>
+  )}
+</div>
       </div>
     );
   };
@@ -512,28 +655,39 @@ const ManageSecretary = () => {
     <div className="app-container">
       {toast && <Toast message={toast.message} type={toast.type} />}
       
-      {/* Delete Confirmation Modal */}
+      {/* Status Change Confirmation Modal */}
       {confirmDelete && selectedSecretary && (
         <div className="modal-overlay">
           <div className="modal-container">
             <div className="modal-header">
-              <h3>Confirm Deletion</h3>
+              <h3>{selectedSecretary.active ? "Disable Account" : "Enable Account"}</h3>
             </div>
             <div className="modal-body">
-              <p>Are you sure you want to delete secretary <strong>{selectedSecretary.name}</strong>?</p>
-              <p className="warning-text">This action cannot be undone.</p>
+              {selectedSecretary.active ? (
+                <>
+                  <p>Are you sure you want to disable <strong>{selectedSecretary.name}</strong>'s account?</p>
+                  <p>They will no longer be able to log in, but their account information will be preserved.</p>
+                </>
+              ) : (
+                <>
+                  <p>Are you sure you want to re-enable <strong>{selectedSecretary.name}</strong>'s account?</p>
+                  <p>This will restore their ability to log in to the system.</p>
+                </>
+              )}
             </div>
             <div className="modal-footer">
               <Button 
-                variant="danger" 
-                onClick={handleConfirmDelete}
+                variant={selectedSecretary.active ? "danger" : "success"} 
+                onClick={selectedSecretary.active ? handleDisableAccount : handleEnableAccount}
                 disabled={isLoading}
               >
-                {isLoading ? "Deleting..." : "Delete Secretary"}
+                {isLoading 
+                  ? (selectedSecretary.active ? "Disabling..." : "Enabling...") 
+                  : (selectedSecretary.active ? "Disable Account" : "Enable Account")}
               </Button>
               <Button 
                 variant="secondary" 
-                onClick={handleCancelDelete}
+                onClick={handleCancelStatusChange}
                 disabled={isLoading}
               >
                 Cancel

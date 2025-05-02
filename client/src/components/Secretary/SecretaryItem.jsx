@@ -9,18 +9,14 @@ import { useNavigate } from 'react-router-dom';
  * @param {Function} props.onClick Function to call when secretary is clicked
  * @returns {JSX.Element} SecretaryItem component
  */
-const SecretaryItem = ({ secretary, isSelected, onClick }) => {
-  const navigate = useNavigate();
-
-  const handleEdit = (e) => {
-    e.stopPropagation(); // Prevent the item click event
-    navigate(`/secretary/edit/${secretary.id}`);
-  };
-
+const SecretaryItem = ({ secretary }) => {
+  const isSelected = selectedSecretary && selectedSecretary.id === secretary.id;
+  const isDisabled = secretary.active === false;
+  
   return (
     <div 
-      className={`secretary-item ${isSelected ? 'selected' : ''}`}
-      onClick={() => onClick(secretary)}
+      className={`secretary-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+      onClick={() => handleSelectSecretary(secretary)}
     >
       <div className="secretary-avatar">
         {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
@@ -29,31 +25,22 @@ const SecretaryItem = ({ secretary, isSelected, onClick }) => {
       <div className="secretary-content">
         <div className="secretary-header">
           <h3 className="secretary-name">{secretary.name}</h3>
-          <span className="secretary-role">secretary</span>
+          <div className="secretary-status">
+            <span className="secretary-role">secretary</span>
+            {isDisabled && <span className="status-badge disabled">Disabled</span>}
+          </div>
         </div>
         
         <div className="secretary-details">
           <div className="secretary-info-item">
-            <span className="info-icon">✉️</span>
             <span className="info-text">{secretary.email}</span>
           </div>
           
           {secretary.phone && (
             <div className="secretary-info-item">
-              <span className="info-icon">📞</span>
               <span className="info-text">{secretary.phone}</span>
             </div>
           )}
-        </div>
-        
-        <div className="secretary-actions">
-          <button 
-            className="action-btn edit"
-            onClick={handleEdit}
-            title="Edit Secretary"
-          >
-            ✏️
-          </button>
         </div>
       </div>
     </div>

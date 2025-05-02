@@ -187,7 +187,8 @@ const AddSecretary = () => {
           role: "secretary",
           lawFirm: lawFirmAdmin.lawFirm,
           adminUID: adminUID,
-          passwordChanged: isPasswordGenerated ? false : true, // Track if using generated password
+          passwordChanged: isPasswordGenerated ? false : true,
+          active: true, // Add this field to track active status
           createdAt: new Date().toISOString()
         });
         
