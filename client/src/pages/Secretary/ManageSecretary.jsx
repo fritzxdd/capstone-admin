@@ -200,7 +200,6 @@ const ManageSecretary = () => {
     if (fetchStatus === "error") {
       return (
         <div className="error-state">
-          <div className="error-icon">⚠️</div>
           <h3>Error Loading Secretaries</h3>
           <p>{error || "There was a problem loading the secretary list."}</p>
           <Button 
@@ -216,13 +215,11 @@ const ManageSecretary = () => {
     if (fetchStatus === "empty") {
       return (
         <div className="empty-state">
-          <div className="empty-icon secretary-empty-icon">👩‍💼</div>
           <h3>No Secretaries Found</h3>
           <p>You haven't added any secretaries yet.</p>
           <Button 
             variant="primary" 
             onClick={handleAddSecretary}
-            icon="add"
           >
             Add Your First Secretary
           </Button>
@@ -240,7 +237,6 @@ const ManageSecretary = () => {
               variant="primary" 
               size="sm"
               onClick={handleAddSecretary}
-              icon="add"
             >
               Add
             </Button>
@@ -306,21 +302,18 @@ const ManageSecretary = () => {
                 <Button 
                   variant="primary" 
                   onClick={handleEditSecretary}
-                  icon="edit"
                 >
                   Edit Secretary
                 </Button>
                 <Button 
                   variant="secondary" 
                   onClick={handleResetPassword}
-                  icon="key"
                 >
                   Reset Password
                 </Button>
                 <Button 
                   variant="danger" 
                   onClick={handleDeleteClick}
-                  icon="delete"
                 >
                   Delete Secretary
                 </Button>
@@ -328,7 +321,6 @@ const ManageSecretary = () => {
             </div>
           ) : (
             <div className="empty-secretary-detail">
-              <div className="empty-icon select-icon">👆</div>
               <h3>No Secretary Selected</h3>
               <p>Select a secretary from the list to view details</p>
             </div>
@@ -377,7 +369,6 @@ const ManageSecretary = () => {
         <Card className="secretary-management-card">
           <div className="card-header">
             <h2 className="card-title">
-              <span className="secretary-icon"></span>
               Manage Secretaries
             </h2>
             <p className="card-subtitle">View, add, edit, and manage secretaries for your law firm</p>
