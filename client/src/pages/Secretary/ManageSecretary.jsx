@@ -97,6 +97,9 @@ const ManageSecretary = () => {
     fetchSecretaries();
   }, []);
 
+  // Handler functions (all other handlers remain the same as original)
+  // ...
+
   // Handle secretary selection
   const handleSelectSecretary = (secretary) => {
     setSelectedSecretary(secretary);
@@ -541,8 +544,10 @@ const ManageSecretary = () => {
       )}
       
       <main className="app-content">
-        {/* Back button at the top left */}
-        <BackButton to="/" />
+        {/* Back button placed above the card, outside of the card container */}
+        <div className="back-button-container" style={{ marginBottom: '20px' }}>
+          <BackButton to="/" />
+        </div>
         
         <Card className="secretary-management-card">
           <div className="card-header">
