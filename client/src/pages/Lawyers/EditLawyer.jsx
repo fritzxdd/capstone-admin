@@ -1,3 +1,4 @@
+// src/pages/Lawyers/EditLawyer.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
@@ -7,6 +8,7 @@ import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
+import BackButton from "../../components/UI/BackButton";
 import SecretarySelector from "../../components/Secretary/SecretarySelector";
 import apiService from "../../services/api";
 import { trackEvent } from "../../services/analytics";
@@ -305,9 +307,8 @@ const EditLawyer = () => {
         
         <Card className="lawyer-card">
           <div className="lawyer-card-header">
-            <button onClick={() => navigate("/")} className="lawyer-back-button">
-              <span className="icon-back"></span>
-            </button>
+            {/* Replace the old lawyer-back-button with our new BackButton component */}
+            <BackButton to="/" />
             <h2 className="lawyer-title">Lawyer Details</h2>
             <div className="header-underline"></div>
           </div>

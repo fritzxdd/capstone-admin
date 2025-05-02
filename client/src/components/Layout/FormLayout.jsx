@@ -1,5 +1,6 @@
-// FormLayout.jsx
+// components/Layout/FormLayout.jsx
 import React from 'react';
+import BackButton from '../UI/BackButton';
 
 /**
  * FormLayout component for consistent form styling across the application
@@ -17,31 +18,19 @@ const FormLayout = ({
   children, 
   backTo = '/', 
   onBack,
-  backText = 'Back',
+  backText = '',
   className = ''
 }) => {
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      window.location.href = backTo;
-    }
-  };
-
   return (
     <div className="container">
       <div className={`form-card ${className}`}>
         <div className="form-header">
-          <button 
-            onClick={handleBack} 
-            className="back-button"
-            aria-label="Go back"
-          >
-            <span className="icon-back"></span>
-            {backText}
-          </button>
+          {/* Position the back button properly within the header */}
+          <BackButton 
+            to={backTo}
+            onClick={onBack}
+            label={backText}
+          />
           
           <h1 className="form-title">{title}</h1>
           <div className="header-underline"></div>

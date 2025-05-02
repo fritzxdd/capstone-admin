@@ -9,6 +9,7 @@ import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
+import BackButton from "../../components/UI/BackButton";
 import "../../styles/index.css";
 
 const ManageSecretary = () => {
@@ -120,11 +121,6 @@ const ManageSecretary = () => {
   // Handle adding new secretary
   const handleAddSecretary = () => {
     navigate("/add-secretary");
-  };
-
-  // Handle back button click
-  const handleBack = () => {
-    navigate("/"); // Navigate back to the dashboard
   };
 
   // Toggle editing mode
@@ -545,12 +541,8 @@ const ManageSecretary = () => {
       )}
       
       <main className="app-content">
-        {/* Back button at the top */}
-        <div className="back-button-container">
-          <button className="back-button" onClick={handleBack}>
-            Back
-          </button>
-        </div>
+        {/* Back button at the top left */}
+        <BackButton to="/" />
         
         <Card className="secretary-management-card">
           <div className="card-header">

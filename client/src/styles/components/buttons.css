@@ -213,30 +213,54 @@
     background-color: var(--accent-color-hover);
   }
   
-  /* Back Button */
-  .back-button, .profile-back-button, .lawyer-back-button {
-    position: absolute;
-    top: 50%;
-    left: var(--spacing-md);
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--text-medium);
-    cursor: pointer;
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-round);
-    transition: all var(--transition-fast);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* styles for back button */
+.back-button {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  background: none;
+  border: none;
+  color: var(--text-medium);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-round);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.back-button:hover {
+  background-color: var(--background-light);
+  color: var(--primary-color);
+  transform: translateX(-2px);
+}
+
+.icon-back::before {
+  content: "←";
+  font-size: var(--font-size-lg);
+}
+
+.back-button .back-label {
+  margin-left: var(--spacing-xs);
+  font-weight: 500;
+}
+
+/* For cards with headers, position the button inside the header */
+.card-header .back-button,
+.form-header .back-button {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Adjust for responsive display */
+@media (max-width: 767.98px) {
+  .back-button {
+    top: var(--spacing-sm);
+    left: var(--spacing-sm);
   }
-  
-  .back-button:hover,
-  .profile-back-button:hover,
-  .lawyer-back-button:hover {
-    background-color: var(--background-light);
-    color: var(--primary-color);
-  }
+}
   
   /* Action Buttons */
   .action-btn {

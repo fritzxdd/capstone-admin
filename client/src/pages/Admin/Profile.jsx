@@ -1,8 +1,11 @@
+// src/pages/Admin/Profile.jsx
 import React, { useEffect, useState } from 'react';
-import { getDatabase, ref, get, update } from 'firebase/database';
 import { useNavigate } from "react-router-dom";
+import { getDatabase, ref, get, update } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth } from '../../services/firebase'; 
+import BackButton from '../../components/UI/BackButton';
+import Toast from '../../components/UI/Toast';
 import '../../styles/index.css';
 
 const Profile = () => {
@@ -23,12 +26,21 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState(null);
   const navigate = useNavigate(); 
 
   const user = auth.currentUser;
 
+  // Display toast message
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => {
     if (user?.uid) {
+      setIsLoading(true);
       const db = getDatabase();
       const userRef = ref(db, 'law_firm_admin/' + user.uid);
       get(userRef).then((snapshot) => {
@@ -38,8 +50,11 @@ const Profile = () => {
             ...snapshot.val(),
           });
         }
+        setIsLoading(false);
       }).catch((error) => {
         console.error("Error fetching data:", error);
+        showToast("Error loading profile data", "error");
+        setIsLoading(false);
       });
     }
   }, [user]);
@@ -66,6 +81,7 @@ const Profile = () => {
 
   const handleUpdate = async () => {
     if (user?.uid) {
+      setIsLoading(true);
       const db = getDatabase();
       const userRef = ref(db, 'law_firm_admin/' + user.uid);
 
@@ -81,7 +97,8 @@ const Profile = () => {
           updatedData.profilePicture = downloadURL; 
         } catch (error) {
           console.error("Error uploading image:", error);
-          alert("Failed to upload image. Please try again.");
+          showToast("Failed to upload profile image", "error");
+          setIsLoading(false);
           return;
         }
       }
@@ -90,32 +107,56 @@ const Profile = () => {
         .then(() => {
           setFormData(updatedData);
           setIsEditing(false);
-          alert("Profile updated successfully!");
+          showToast("Profile updated successfully", "success");
+          setIsLoading(false);
         })
         .catch((error) => {
           console.error("Error updating data:", error);
+          showToast("Failed to update profile", "error");
+          setIsLoading(false);
         });
     }
   };
 
   return (
-    <div className="profile-card">
-      <div className="profile-header-container">
-        <button onClick={() => navigate("/")} className="profile-back-button">
-        <span className="icon-back"></span>
-        </button>
-        <h2 className="profile-header-title">Law Firm Profile</h2>
-        <div className="profile-header-underline"></div>
-      </div>
+    <div className="profile-container">
+      {toast && <Toast message={toast.message} type={toast.type} />}
+      
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      )}
 
-    
+      <div className="profile-card">
+        <div className="profile-header-container">
+          {/* Implement the BackButton component at top left */}
+          <BackButton to="/" />
+          <h2 className="profile-header-title">Law Firm Profile</h2>
+          <div className="profile-header-underline"></div>
+        </div>
+
         {!isEditing ? (
           <div className="profile-details">
+            {formData.profilePicture && (
+              <div className="profile-picture-container">
+                <img 
+                  src={formData.profilePicture} 
+                  alt={formData.lawFirm} 
+                  className="profile-picture"
+                />
+              </div>
+            )}
+            
             <div className="profile-detail-item">
               <div className="profile-detail-icon">
-               
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
               </div>
-              
+              <div className="profile-detail-label">Law Firm:</div>
+              <div className="profile-detail-value">{formData.lawFirm}</div>
             </div>
 
             <div className="profile-detail-item">
@@ -203,8 +244,6 @@ const Profile = () => {
               />
             </div>
             
-            
-            
             <div className="profile-edit-group">
               <label className="profile-edit-label">License Number</label>
               <input 
@@ -262,24 +301,37 @@ const Profile = () => {
             
             <div className="profile-edit-group">
               <label className="profile-edit-label">Firm Description</label>
-              <input 
-                type="text" 
+              <textarea 
                 name="firmDescription" 
                 value={formData.firmDescription} 
                 onChange={handleChange} 
                 className="profile-edit-input"
+                rows="4"
               />
             </div>
             
             <div className="profile-edit-group">
-              <input 
-                type="file" 
-                id="profilePicture" 
-                accept="image/*" 
-                onChange={handleFileChange} 
-                className="profile-file-input"
-              />
-              
+              <label className="profile-edit-label">Profile Picture</label>
+              <div className="profile-image-upload">
+                {(preview || formData.profilePicture) && (
+                  <div className="profile-preview">
+                    <img 
+                      src={preview || formData.profilePicture} 
+                      alt="Preview" 
+                    />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  id="profilePicture" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                  className="profile-file-input"
+                />
+                <label htmlFor="profilePicture" className="file-upload-btn">
+                  Choose File
+                </label>
+              </div>
             </div>
           </div>
         )}
@@ -287,22 +339,27 @@ const Profile = () => {
         <div className="profile-actions">
           {!isEditing ? (
             <>
-              <button onClick={handleEdit} className="profile-edit-btn">
-              <span className="icon-edit"></span>
-              Update Profile
+              <button onClick={handleEdit} className="profile-edit-btn" disabled={isLoading}>
+                <span className="icon-edit"></span>
+                Update Profile
               </button> 
             </>
           ) : (
             <>
-              <button onClick={handleUpdate} className="profile-save-btn">
-              <span className="icon-save"></span>
-              Save Changes
+              <button onClick={handleUpdate} className="profile-save-btn" disabled={isLoading}>
+                <span className="icon-save"></span>
+                Save Changes
               </button>
               
+              <button onClick={() => setIsEditing(false)} className="profile-cancel-btn" disabled={isLoading}>
+                <span className="icon-cancel"></span>
+                Cancel
+              </button>
             </>
           )}
         </div>
       </div>
+    </div>
   );
 };
 
