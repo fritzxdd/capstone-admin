@@ -14,7 +14,10 @@ import Loading from "../../components/UI/Loading";
 const AdminPanel = ({ user, onLogout }) => {
   const [lawyers, setLawyers] = useState([]);
   const [adminLawFirm, setAdminLawFirm] = useState("");
-  const [appointmentData, setAppointmentData] = useState([]);
+  const [appointmentData, setAppointmentData] = useState({
+    chartData: [],
+    lawyerColors: {}
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalLawyers: 0,
@@ -24,6 +27,7 @@ const AdminPanel = ({ user, onLogout }) => {
   });
   const navigate = useNavigate();
 
+  // Fetch admin law firm name
   useEffect(() => {
     const adminRef = ref(db, "law_firm_admin/" + user.uid);
     onValue(adminRef, (snapshot) => {
@@ -36,6 +40,7 @@ const AdminPanel = ({ user, onLogout }) => {
     });
   }, [user]);
 
+  // Fetch lawyers for this admin
   useEffect(() => {
     if (user.uid) {
       setIsLoading(true);
@@ -62,93 +67,142 @@ const AdminPanel = ({ user, onLogout }) => {
               count: filteredLawyers.length 
             });
           }
+        } else {
+          setLawyers([]);
+          setStats(prev => ({
+            ...prev,
+            totalLawyers: 0
+          }));
         }
         setIsLoading(false);
       });
     }
-  }, [user.uid]); // Depend on user.uid instead of adminLawFirm
+  }, [user.uid]);
 
-  // Fetch appointments data
+  // Helper function to parse date string in MM/DD/YYYY format
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    
+    // Parse date in MM/DD/YYYY format
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    
+    const month = parseInt(parts[0], 10) - 1; // 0-indexed months
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    
+    return new Date(year, month, day);
+  };
+
+  // Fetch appointments data and process it for the chart
   useEffect(() => {
     if (lawyers.length > 0) {
       const appointmentsRef = ref(db, "appointments");
+      
+      // Listen for changes to appointments data
       onValue(appointmentsRef, (snapshot) => {
+        // Reset counters
+        let totalCount = 0;
+        let pendingCount = 0;
+        let completedCount = 0;
+        
+        // Create data structure for monthly appointments
+        const appointmentsByMonth = {};
+        const lawyerColors = {};
+        
+        // Assign unique colors to each lawyer
+        lawyers.forEach((lawyer, index) => {
+          // Generate different colors using golden ratio for better distribution
+          const hue = (index * 137.5) % 360;
+          lawyerColors[lawyer.id] = `hsl(${hue}, 70%, 50%)`;
+        });
+        
         if (snapshot.exists()) {
-          const allAppointments = snapshot.val();
-          let totalCount = 0;
-          let pendingCount = 0;
-          let completedCount = 0;
+          const appointmentsData = snapshot.val();
           
-          // Process appointments for the line graph
-          const appointmentsByMonth = {};
-          const lawyerColors = {};
-          
-          // Assign colors to lawyers
-          lawyers.forEach((lawyer, index) => {
-            // Generate different colors for each lawyer
-            const hue = (index * 137.5) % 360; // Golden ratio to distribute colors
-            lawyerColors[lawyer.id] = `hsl(${hue}, 70%, 50%)`;
-          });
-          
-          // Structure the data for a line graph by month
-          Object.entries(allAppointments).forEach(([id, appointment]) => {
-            // Only count appointments for the current admin's lawyers
+          // Process each appointment
+          Object.entries(appointmentsData).forEach(([id, appointment]) => {
+            // Make sure the appointment has a lawyerId and it belongs to one of our lawyers
+            if (!appointment.lawyerId) return;
+            
             const lawyerExists = lawyers.some(lawyer => lawyer.id === appointment.lawyerId);
             if (!lawyerExists) return;
             
+            // Count total appointments
             totalCount++;
             
-            if (appointment.status === 'pending') {
+            // Count by status (note: checking for both lowercase and capitalized status)
+            if (appointment.status === 'pending' || appointment.status === 'Pending') {
               pendingCount++;
-            } else if (appointment.status === 'completed') {
+            } else if (appointment.status === 'completed' || appointment.status === 'Completed') {
               completedCount++;
             }
             
-            if (appointment.lawyerId && appointment.date) {
-              const date = new Date(appointment.date);
-              const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+            // Group by month for the chart
+            if (appointment.date) {
+              // Parse date from string format MM/DD/YYYY
+              const appointmentDate = parseDate(appointment.date);
+              if (!appointmentDate) return; // Skip if date parsing failed
               
+              const monthYear = `${appointmentDate.getMonth() + 1}/${appointmentDate.getFullYear()}`;
+              
+              // Initialize the month if it doesn't exist
               if (!appointmentsByMonth[monthYear]) {
-                appointmentsByMonth[monthYear] = {};
+                appointmentsByMonth[monthYear] = {
+                  monthYear,
+                  sortDate: new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1)
+                };
+                
+                // Initialize count for each lawyer
                 lawyers.forEach(lawyer => {
                   appointmentsByMonth[monthYear][lawyer.id] = 0;
                 });
               }
               
+              // Increment the count for this lawyer in this month
               appointmentsByMonth[monthYear][appointment.lawyerId]++;
             }
           });
-          
-          // Update stats
-          setStats(prev => ({
-            ...prev,
-            totalAppointments: totalCount,
-            pendingAppointments: pendingCount,
-            completedAppointments: completedCount
-          }));
-          
-          // Convert to array and sort by date
-          const chartData = Object.entries(appointmentsByMonth)
-            .map(([monthYear, counts]) => {
-              const [month, year] = monthYear.split('/');
-              return {
-                monthYear,
-                sortDate: new Date(parseInt(year), parseInt(month) - 1, 1),
-                ...counts
-              };
-            })
-            .sort((a, b) => a.sortDate - b.sortDate);
-          
-          setAppointmentData({
-            chartData,
-            lawyerColors
+        }
+        
+        // Update appointment statistics
+        setStats(prev => ({
+          ...prev,
+          totalAppointments: totalCount,
+          pendingAppointments: pendingCount,
+          completedAppointments: completedCount
+        }));
+        
+        // Sort appointments by date for chart display
+        const chartData = Object.values(appointmentsByMonth)
+          .sort((a, b) => a.sortDate - b.sortDate);
+        
+        // Update appointment data for the chart
+        setAppointmentData({
+          chartData,
+          lawyerColors
+        });
+        
+        // Log analytics event
+        if (analytics) {
+          logEvent(analytics, "appointment_data_loaded", {
+            total_appointments: totalCount
           });
-          
-          if (analytics) {
-            logEvent(analytics, "appointment_data_loaded");
-          }
         }
       });
+    } else {
+      // Reset data if no lawyers
+      setAppointmentData({
+        chartData: [],
+        lawyerColors: {}
+      });
+      
+      setStats(prev => ({
+        ...prev,
+        totalAppointments: 0,
+        pendingAppointments: 0,
+        completedAppointments: 0
+      }));
     }
   }, [lawyers]);
 
@@ -190,31 +244,31 @@ const AdminPanel = ({ user, onLogout }) => {
         </div>
         
         <div className="stats-cards">
-          <Card className="stat-card">
+          <Card className="stat-card lawyers-icon">
             <div className="stat-content">
               <h3 className="stat-title">TOTAL LAWYERS</h3>
               <p className="stat-value">{stats.totalLawyers}</p>
             </div>
           </Card>
           
-          <Card className="stat-card">
+          <Card className="stat-card appointments-icon">
             <div className="stat-content">
               <h3 className="stat-title">TOTAL APPOINTMENTS</h3>
               <p className="stat-value">{stats.totalAppointments}</p>
             </div>
           </Card>
           
-          <Card className="stat-card">
+          <Card className="stat-card pending-icon">
             <div className="stat-content">
               <h3 className="stat-title">PENDING APPOINTMENTS</h3>
               <p className="stat-value">{stats.pendingAppointments}</p>
             </div>
           </Card>
           
-          <Card className="stat-card">
+          <Card className="stat-card completed-icon">
             <div className="stat-content">
               <h3 className="stat-title">COMPLETED APPOINTMENTS</h3>
-              <p className="stat-value">{stats.completedAppointments}</p>
+              <p className="stat-value">{stats.completedCount}</p>
             </div>
           </Card>
         </div>
@@ -239,7 +293,7 @@ const AdminPanel = ({ user, onLogout }) => {
                         </div>
                         <div className="lawyer-details">
                           <h3 className="lawyer-name">{lawyer.name}</h3>
-                          <p className="lawyer-specialization">{lawyer.specialization}</p>
+                          <p className="lawyer-specialization">{lawyer.specialization || "No specialization"}</p>
                         </div>
                       </div>
                       
@@ -255,6 +309,7 @@ const AdminPanel = ({ user, onLogout }) => {
                 </ul>
               ) : (
                 <div className="empty-state">
+                  <div className="empty-icon lawyer-empty-icon"></div>
                   <p>No lawyers found for this admin.</p>
                   <Button 
                     variant="primary" 
@@ -282,11 +337,13 @@ const AdminPanel = ({ user, onLogout }) => {
                   />
                 ) : (
                   <div className="empty-state">
+                    <div className="analytics-empty-icon"></div>
                     <p>No appointment data available yet.</p>
                   </div>
                 )
               ) : (
                 <div className="empty-state">
+                  <div className="analytics-empty-icon"></div>
                   <p>Add lawyers to view appointment analytics.</p>
                 </div>
               )}
