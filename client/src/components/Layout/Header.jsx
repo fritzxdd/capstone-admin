@@ -64,7 +64,6 @@ const Header = ({ user, onLogout }) => {
             className={`nav-link ${isActive('/') ? 'active' : ''}`}
             onClick={() => handleNavigate("/", "Dashboard")}
           >
-            <span className="nav-icon dashboard-icon"></span>
             Dashboard
           </button>
           
@@ -72,7 +71,6 @@ const Header = ({ user, onLogout }) => {
             className={`nav-link ${isActive('/lawyers/add') ? 'active' : ''}`}
             onClick={() => handleNavigate("/lawyers/add", "Manage Lawyer")}
           >
-            <span className="nav-icon lawyer-icon"></span>
             Manage Lawyers
           </button>
           
@@ -80,7 +78,6 @@ const Header = ({ user, onLogout }) => {
             className={`nav-link ${isActive('/secretary/manage') ? 'active' : ''}`}
             onClick={() => handleNavigate("/secretary/manage", "Manage Secretary")}
           >
-            <span className="nav-icon secretary-icon"></span>
             Manage Secretary
           </button>
 
@@ -117,7 +114,6 @@ const Header = ({ user, onLogout }) => {
                   className="dropdown-item" 
                   onClick={() => handleNavigate("/profile", "Profile")}
                 >
-                  <span className="dropdown-icon settings-icon"></span>
                   Profile Settings
                 </button>
                 
@@ -125,7 +121,6 @@ const Header = ({ user, onLogout }) => {
                   className="dropdown-item" 
                   onClick={() => handleNavigate("/plans", "Plan & Subscription")}
                 >
-                  <span className="dropdown-icon subscription-icon"></span>
                   Plans & Subscription
                 </button>
                 
@@ -133,7 +128,6 @@ const Header = ({ user, onLogout }) => {
                   className="dropdown-item" 
                   onClick={() => handleNavigate("/privacy", "Privacy Policy")}
                 >
-                  <span className="dropdown-icon privacy-icon"></span>
                   Privacy Policy
                 </button>
                 
@@ -146,7 +140,6 @@ const Header = ({ user, onLogout }) => {
                     if (analytics) logEvent(analytics, "logout", { admin_id: user?.uid });
                   }}
                 >
-                  <span className="dropdown-icon logout-icon"></span>
                   Sign Out
                 </button>
               </div>
