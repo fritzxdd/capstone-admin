@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
-import { ref, onValue, remove } from "firebase/database";
+import { ref, onValue, update, remove } from "firebase/database";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../../services/firebase";
@@ -9,7 +9,6 @@ import Button from "../../components/UI/Button";
 import Card from "../../components/UI/Card";
 import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
-import { SecretaryItem } from "../../components/Secretary"; // Import from index
 import "../../styles/index.css";
 
 const ManageSecretary = () => {
@@ -20,6 +19,12 @@ const ManageSecretary = () => {
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fetchStatus, setFetchStatus] = useState("loading"); // loading, success, error, empty
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    phone: ""
+  });
   const navigate = useNavigate();
 
   // Display toast message
@@ -93,8 +98,15 @@ const ManageSecretary = () => {
 
   // Handle secretary selection
   const handleSelectSecretary = (secretary) => {
-    console.log("Secretary selected:", secretary); // Debug log
     setSelectedSecretary(secretary);
+    setEditFormData({
+      name: secretary.name || "",
+      email: secretary.email || "",
+      phone: secretary.phone || ""
+    });
+    
+    // Reset editing state
+    setIsEditing(false);
     
     // Log selection event
     if (analytics) {
@@ -110,11 +122,80 @@ const ManageSecretary = () => {
     navigate("/add-secretary");
   };
 
-  // Handle editing secretary
-  const handleEditSecretary = () => {
+  // Toggle editing mode
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+    // Reset form data to secretary data when toggling edit mode
+    if (!isEditing && selectedSecretary) {
+      setEditFormData({
+        name: selectedSecretary.name || "",
+        email: selectedSecretary.email || "",
+        phone: selectedSecretary.phone || ""
+      });
+    }
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  // Save edited secretary data
+  const handleSaveSecretary = async () => {
+    if (!selectedSecretary) return;
+    
+    setIsLoading(true);
+    try {
+      // Update secretary data in Firebase
+      const updates = {
+        name: editFormData.name,
+        email: editFormData.email,
+        phone: editFormData.phone
+      };
+      
+      await update(ref(db, `secretaries/${selectedSecretary.id}`), updates);
+      
+      // Update local state
+      const updatedSecretaries = secretaries.map(secretary => {
+        if (secretary.id === selectedSecretary.id) {
+          return { ...secretary, ...updates };
+        }
+        return secretary;
+      });
+      
+      setSecretaries(updatedSecretaries);
+      setSelectedSecretary({ ...selectedSecretary, ...updates });
+      
+      setIsEditing(false);
+      showToast("Secretary updated successfully", "success");
+      
+      if (analytics) {
+        logEvent(analytics, "update_secretary", { 
+          secretary_id: selectedSecretary.id 
+        });
+      }
+    } catch (error) {
+      console.error("Error updating secretary:", error);
+      showToast(`Failed to update secretary: ${error.message}`, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form data to secretary data
     if (selectedSecretary) {
-      console.log("Navigating to edit secretary:", selectedSecretary.id); // Debug log
-      navigate(`/secretary/edit/${selectedSecretary.id}`);
+      setEditFormData({
+        name: selectedSecretary.name || "",
+        email: selectedSecretary.email || "",
+        phone: selectedSecretary.phone || ""
+      });
     }
   };
 
@@ -191,9 +272,44 @@ const ManageSecretary = () => {
     }
   };
 
+  // Render secretary item
+  const SecretaryItem = ({ secretary }) => {
+    const isSelected = selectedSecretary && selectedSecretary.id === secretary.id;
+    
+    return (
+      <div 
+        className={`secretary-item ${isSelected ? 'selected' : ''}`}
+        onClick={() => handleSelectSecretary(secretary)}
+      >
+        <div className="secretary-avatar">
+          {secretary.name ? secretary.name.charAt(0).toUpperCase() : "S"}
+        </div>
+        
+        <div className="secretary-content">
+          <div className="secretary-header">
+            <h3 className="secretary-name">{secretary.name}</h3>
+            <span className="secretary-role">secretary</span>
+          </div>
+          
+          <div className="secretary-details">
+            <div className="secretary-info-item">
+              <span className="info-text">{secretary.email}</span>
+            </div>
+            
+            {secretary.phone && (
+              <div className="secretary-info-item">
+                <span className="info-text">{secretary.phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render content based on fetch status
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading && fetchStatus === "loading") {
       return <Loading message="Loading secretaries..." />;
     }
 
@@ -247,8 +363,6 @@ const ManageSecretary = () => {
               <SecretaryItem
                 key={secretary.id}
                 secretary={secretary}
-                isSelected={selectedSecretary && selectedSecretary.id === secretary.id}
-                onClick={handleSelectSecretary}
               />
             ))}
           </div>
@@ -268,56 +382,116 @@ const ManageSecretary = () => {
                 </div>
               </div>
               
-              <div className="info-section">
-                <h3 className="section-title">Contact Information</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Email:</span>
-                    <span className="info-value">{selectedSecretary.email}</span>
+              {isEditing ? (
+                // Edit mode form
+                <div className="secretary-edit-form">
+                  <div className="form-group">
+                    <label htmlFor="name">Full Name</label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={editFormData.name}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Phone:</span>
-                    <span className="info-value">{selectedSecretary.phone || "Not provided"}</span>
+                  
+                  <div className="form-group">
+                    <label htmlFor="email">Email Address</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={editFormData.email}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="phone">Phone Number</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={editFormData.phone}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  
+                  <div className="form-actions">
+                    <Button
+                      variant="success"
+                      onClick={handleSaveSecretary}
+                      disabled={isLoading}
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleCancelEdit}
+                      disabled={isLoading}
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-              </div>
-              
-              <div className="info-section">
-                <h3 className="section-title">Law Firm Association</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Law Firm:</span>
-                    <span className="info-value">{selectedSecretary.lawFirm || "Not specified"}</span>
+              ) : (
+                // View mode
+                <>
+                  <div className="info-section">
+                    <h3 className="section-title">Contact Information</h3>
+                    <div className="info-grid">
+                      <div className="info-item">
+                        <span className="info-label">Email:</span>
+                        <span className="info-value">{selectedSecretary.email}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Phone:</span>
+                        <span className="info-value">{selectedSecretary.phone || "Not provided"}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Created:</span>
-                    <span className="info-value">
-                      {selectedSecretary.createdAt ? new Date(selectedSecretary.createdAt).toLocaleDateString() : "Unknown"}
-                    </span>
+                  
+                  <div className="info-section">
+                    <h3 className="section-title">Law Firm Association</h3>
+                    <div className="info-grid">
+                      <div className="info-item">
+                        <span className="info-label">Law Firm:</span>
+                        <span className="info-value">{selectedSecretary.lawFirm || "Not specified"}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Created:</span>
+                        <span className="info-value">
+                          {selectedSecretary.createdAt ? new Date(selectedSecretary.createdAt).toLocaleDateString() : "Unknown"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="secretary-actions-container">
-                <Button 
-                  variant="primary" 
-                  onClick={handleEditSecretary}
-                >
-                  Edit Secretary
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={handleResetPassword}
-                >
-                  Reset Password
-                </Button>
-                <Button 
-                  variant="danger" 
-                  onClick={handleDeleteClick}
-                >
-                  Delete Secretary
-                </Button>
-              </div>
+                  
+                  <div className="secretary-actions-container">
+                    <Button 
+                      variant="primary" 
+                      onClick={handleEditToggle}
+                    >
+                      Edit Secretary
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      onClick={handleResetPassword}
+                    >
+                      Reset Password
+                    </Button>
+                    <Button 
+                      variant="danger" 
+                      onClick={handleDeleteClick}
+                    >
+                      Delete Secretary
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="empty-secretary-detail">
