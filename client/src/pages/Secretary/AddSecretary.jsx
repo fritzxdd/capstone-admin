@@ -18,8 +18,7 @@ const AddSecretary = () => {
     name: "",
     email: "",
     phone: "",
-    password: "",
-    confirmPassword: ""
+    password: ""
   });
   const [lawFirmAdmin, setLawFirmAdmin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +29,7 @@ const AddSecretary = () => {
     password: ""
   });
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const [isPasswordGenerated, setIsPasswordGenerated] = useState(false);
 
   // Display toast message
   const showToast = (message, type = 'info') => {
@@ -75,6 +75,11 @@ const AddSecretary = () => {
       ...prevState,
       [name]: value
     }));
+
+    // If user is typing in the password field, turn off the generated password flag
+    if (name === "password" && isPasswordGenerated) {
+      setIsPasswordGenerated(false);
+    }
   };
 
   // Generate a temporary password
@@ -85,9 +90,9 @@ const AddSecretary = () => {
     setGeneratedPassword(tempPassword);
     setFormData(prevState => ({
       ...prevState,
-      password: tempPassword,
-      confirmPassword: tempPassword
+      password: tempPassword
     }));
+    setIsPasswordGenerated(true);
     
     return tempPassword;
   };
@@ -118,11 +123,6 @@ const AddSecretary = () => {
     
     if (formData.password.length < 6) {
       setError("Password must be at least 6 characters");
-      return false;
-    }
-    
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
       return false;
     }
     
@@ -187,7 +187,7 @@ const AddSecretary = () => {
           role: "secretary",
           lawFirm: lawFirmAdmin.lawFirm,
           adminUID: adminUID,
-          passwordChanged: generatedPassword ? false : true, // Track if using temp password
+          passwordChanged: isPasswordGenerated ? false : true, // Track if using generated password
           createdAt: new Date().toISOString()
         });
         
@@ -203,6 +203,11 @@ const AddSecretary = () => {
         
         // Show success message
         showToast("Secretary created successfully! Verification email sent.", 'success');
+        
+        // Display password info if it was generated
+        if (isPasswordGenerated) {
+          showToast(`Temporary password for secretary: ${formData.password}`, 'info');
+        }
         
         // Navigate back to secretary management after a short delay
         setTimeout(() => {
@@ -285,44 +290,29 @@ const AddSecretary = () => {
             />
           </div>
           
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="password" className="required-field">Password</label>
-              <div className="input-group">
-                <input
-                  type="text" 
-                  id="password"
-                  name="password" 
-                  value={formData.password} 
-                  onChange={handleChange}
-                  placeholder="Enter password or generate one"
-                  required
-                />
-                <button 
-                  type="button" 
-                  className="generate-btn"
-                  onClick={generateTemporaryPassword}
-                >
-                  Generate
-                </button>
-              </div>
-              <small className="form-text">
-                {generatedPassword ? "A temporary password has been generated." : "Password must be at least 6 characters."}
-              </small>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="confirmPassword" className="required-field">Confirm Password</label>
+          <div className="form-group">
+            <label htmlFor="password" className="required-field">Password</label>
+            <div className="input-group">
               <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                type="text" 
+                id="password"
+                name="password" 
+                value={formData.password} 
                 onChange={handleChange}
-                placeholder="Confirm password"
+                placeholder="Enter password or generate one"
                 required
               />
+              <button 
+                type="button" 
+                className="generate-btn"
+                onClick={generateTemporaryPassword}
+              >
+                Generate
+              </button>
             </div>
+            <small className="form-text">
+              {isPasswordGenerated ? "A temporary password has been generated." : "Password must be at least 6 characters."}
+            </small>
           </div>
           
           <div className="form-group">
