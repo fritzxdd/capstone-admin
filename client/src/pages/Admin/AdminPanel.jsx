@@ -190,34 +190,30 @@ const AdminPanel = ({ user, onLogout }) => {
         </div>
         
         <div className="stats-cards">
-          <Card className="stat-card lawyers-icon">
-            <div className="stat-icon lawyers-icon"></div>
+          <Card className="stat-card">
             <div className="stat-content">
-              <h3 className="stat-title">Total Lawyers</h3>
+              <h3 className="stat-title">TOTAL LAWYERS</h3>
               <p className="stat-value">{stats.totalLawyers}</p>
             </div>
           </Card>
           
           <Card className="stat-card">
-            <div className="stat-icon appointments-icon"></div>
             <div className="stat-content">
-              <h3 className="stat-title">Total Appointments</h3>
+              <h3 className="stat-title">TOTAL APPOINTMENTS</h3>
               <p className="stat-value">{stats.totalAppointments}</p>
             </div>
           </Card>
           
           <Card className="stat-card">
-            <div className="stat-icon pending-icon"></div>
             <div className="stat-content">
-              <h3 className="stat-title">Pending</h3>
+              <h3 className="stat-title">PENDING APPOINTMENTS</h3>
               <p className="stat-value">{stats.pendingAppointments}</p>
             </div>
           </Card>
           
           <Card className="stat-card">
-            <div className="stat-icon completed-icon"></div>
             <div className="stat-content">
-              <h3 className="stat-title">Completed</h3>
+              <h3 className="stat-title">COMPLETED APPOINTMENTS</h3>
               <p className="stat-value">{stats.completedAppointments}</p>
             </div>
           </Card>
@@ -259,7 +255,6 @@ const AdminPanel = ({ user, onLogout }) => {
                 </ul>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon lawyer-empty-icon"></div>
                   <p>No lawyers found for this admin.</p>
                   <Button 
                     variant="primary" 
@@ -287,13 +282,11 @@ const AdminPanel = ({ user, onLogout }) => {
                   />
                 ) : (
                   <div className="empty-state">
-                    <div className="empty-icon analytics-empty-icon"></div>
                     <p>No appointment data available yet.</p>
                   </div>
                 )
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon analytics-empty-icon"></div>
                   <p>Add lawyers to view appointment analytics.</p>
                 </div>
               )}
