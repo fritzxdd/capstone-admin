@@ -1,4 +1,3 @@
-// src/pages/Lawyers/EditLawyer.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
@@ -10,9 +9,8 @@ import Loading from "../../components/UI/Loading";
 import Toast from "../../components/UI/Toast";
 import BackButton from "../../components/UI/BackButton";
 import SecretarySelector from "../../components/Secretary/SecretarySelector";
-import apiService from "../../services/api";
 import { trackEvent } from "../../services/analytics";
-import "../../styles/index.css"; 
+import "../../styles/index.css";
 
 const EditLawyer = () => {
   const navigate = useNavigate();
@@ -305,9 +303,37 @@ const EditLawyer = () => {
           </div>
         )}
         
+        {confirmDelete && (
+          <div className="modal-overlay">
+            <div className="modal-container">
+              <div className="modal-header">
+                <h3>Confirm Deletion</h3>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to delete this lawyer? This action cannot be undone.</p>
+              </div>
+              <div className="modal-footer">
+                <Button 
+                  variant="danger" 
+                  onClick={handleDeleteLawyer}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Deleting..." : "Delete Lawyer"}
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={cancelDelete}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <Card className="lawyer-card">
           <div className="lawyer-card-header">
-            {/* Replace the old lawyer-back-button with our new BackButton component */}
             <BackButton to="/" />
             <h2 className="lawyer-title">Lawyer Details</h2>
             <div className="header-underline"></div>
@@ -317,26 +343,7 @@ const EditLawyer = () => {
             {error && <div className="error-message">{error}</div>}
             {success && <div className="success-message">{success}</div>}
             
-            {confirmDelete ? (
-              <div className="confirm-delete-section">
-                <h3>Confirm Deletion</h3>
-                <p>Are you sure you want to delete this lawyer? This action cannot be undone.</p>
-                <div className="confirm-actions">
-                  <Button 
-                    variant="danger" 
-                    onClick={handleDeleteLawyer}
-                  >
-                    Yes, Delete Lawyer
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    onClick={cancelDelete}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
+            {isEditing ? (
               <div className="lawyer-form-layout">
                 <div className="lawyer-image-section">
                   <div className="profile-image-container">
@@ -348,254 +355,250 @@ const EditLawyer = () => {
                       />
                     ) : (
                       <div className="profile-placeholder">
-                        <span className="profile-placeholder-icon">👩‍⚖️</span>
+                        <span className="profile-placeholder-text">{lawyer.name.charAt(0).toUpperCase()}</span>
                       </div>
                     )}
                   </div>
-                  {isEditing && (
-                    <>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        id="fileUpload" 
-                        style={{ display: "none" }} 
-                        onChange={handleProfileImageChange} 
-                      />
-                      <button 
-                        className="photo-button" 
-                        onClick={() => document.getElementById("fileUpload").click()}
-                      >
-                        Change Photo
-                      </button>
-                    </>
-                  )}
-                  
-                  {!isEditing && (
-                    <div className="lawyer-quick-actions">
-                      <Button 
-                        variant="primary" 
-                        icon="edit"
-                        onClick={handleEditToggle}
-                        size="sm"
-                      >
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="secondary" 
-                        icon="key"
-                        onClick={handleResetPassword}
-                        size="sm"
-                      >
-                        Reset Password
-                      </Button>
-                    </div>
-                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    id="fileUpload" 
+                    style={{ display: "none" }} 
+                    onChange={handleProfileImageChange} 
+                  />
+                  <button 
+                    className="photo-button" 
+                    onClick={() => document.getElementById("fileUpload").click()}
+                  >
+                    Change Photo
+                  </button>
                 </div>
                 
                 <div className="lawyer-details-section">
-                  {isEditing ? (
-                    <div className="lawyer-edit-form">
-                      <div className="form-grid">
-                        <div className="form-group">
-                          <label htmlFor="name">Full Name *</label>
-                          <input 
-                            type="text" 
-                            id="name"
-                            name="name" 
-                            value={lawyer.name || ""} 
-                            onChange={handleChange} 
-                            required 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="email">Email Address *</label>
-                          <input 
-                            type="email" 
-                            id="email"
-                            name="email" 
-                            value={lawyer.email || ""} 
-                            onChange={handleChange} 
-                            required 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="phone">Phone Number</label>
-                          <input 
-                            type="tel" 
-                            id="phone"
-                            name="phone" 
-                            value={lawyer.phone || ""} 
-                            onChange={handleChange} 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="specialization">Specialization</label>
-                          <input 
-                            type="text" 
-                            id="specialization"
-                            name="specialization" 
-                            value={lawyer.specialization || ""} 
-                            onChange={handleChange} 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="licenseNumber">License Number</label>
-                          <input 
-                            type="text" 
-                            id="licenseNumber"
-                            name="licenseNumber" 
-                            value={lawyer.licenseNumber || ""} 
-                            onChange={handleChange} 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="experience">Experience (years)</label>
-                          <input 
-                            type="text" 
-                            id="experience"
-                            name="experience" 
-                            value={lawyer.experience || ""} 
-                            onChange={handleChange} 
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label htmlFor="secretary">Assigned Secretary</label>
-                          <SecretarySelector 
-                            adminId={lawyer.adminUID} 
-                            selectedSecretaryId={secretaryId}
-                            onChange={setSecretaryId}
-                          />
-                        </div>
+                  <div className="lawyer-edit-form">
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label htmlFor="name">Full Name *</label>
+                        <input 
+                          type="text" 
+                          id="name"
+                          name="name" 
+                          value={lawyer.name || ""} 
+                          onChange={handleChange} 
+                          required 
+                        />
                       </div>
                       
-                      <div className="form-actions">
-                        <Button 
-                          variant="success" 
-                          onClick={handleSave}
-                        >
-                          Save Changes
-                        </Button>
-                        <Button 
-                          variant="secondary" 
-                          onClick={handleCancel}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          variant="danger" 
-                          onClick={initiateDelete}
-                        >
-                          Delete Lawyer
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="lawyer-info-display">
-                      <div className="info-section">
-                        <h3 className="section-title">Personal Information</h3>
-                        <div className="info-grid">
-                          <div className="info-item">
-                            <span className="info-label">Name:</span>
-                            <span className="info-value">{lawyer.name}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Email:</span>
-                            <span className="info-value">{lawyer.email}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Phone:</span>
-                            <span className="info-value">{lawyer.phone || "Not provided"}</span>
-                          </div>
-                        </div>
+                      <div className="form-group">
+                        <label htmlFor="email">Email Address *</label>
+                        <input 
+                          type="email" 
+                          id="email"
+                          name="email" 
+                          value={lawyer.email || ""} 
+                          onChange={handleChange} 
+                          required 
+                        />
                       </div>
                       
-                      <div className="info-section">
-                        <h3 className="section-title">Professional Information</h3>
-                        <div className="info-grid">
-                          <div className="info-item">
-                            <span className="info-label">Specialization:</span>
-                            <span className="info-value">{lawyer.specialization || "Not specified"}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">License Number:</span>
-                            <span className="info-value">{lawyer.licenseNumber || "Not provided"}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Experience:</span>
-                            <span className="info-value">{lawyer.experience ? `${lawyer.experience} years` : "Not specified"}</span>
-                          </div>
-                        </div>
+                      <div className="form-group">
+                        <label htmlFor="phone">Phone Number</label>
+                        <input 
+                          type="tel" 
+                          id="phone"
+                          name="phone" 
+                          value={lawyer.phone || ""} 
+                          onChange={handleChange} 
+                        />
                       </div>
                       
-                      <div className="info-section">
-                        <h3 className="section-title">Assigned Secretary</h3>
+                      <div className="form-group">
+                        <label htmlFor="specialization">Specialization</label>
+                        <input 
+                          type="text" 
+                          id="specialization"
+                          name="specialization" 
+                          value={lawyer.specialization || ""} 
+                          onChange={handleChange} 
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="licenseNumber">License Number</label>
+                        <input 
+                          type="text" 
+                          id="licenseNumber"
+                          name="licenseNumber" 
+                          value={lawyer.licenseNumber || ""} 
+                          onChange={handleChange} 
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="experience">Experience (years)</label>
+                        <input 
+                          type="text" 
+                          id="experience"
+                          name="experience" 
+                          value={lawyer.experience || ""} 
+                          onChange={handleChange} 
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="secretary">Assigned Secretary</label>
                         <SecretarySelector 
                           adminId={lawyer.adminUID} 
                           selectedSecretaryId={secretaryId}
                           onChange={setSecretaryId}
-                          disabled={true}
                         />
                       </div>
-                      
-                      <div className="services-section">
-                        <h3 className="section-title">Services Offered</h3>
-                        <div className="services-list-container">
-                          {services.length > 0 ? (
-                            <ul className="services-list">
-                              {services.map((service, index) => (
-                                <li key={index} className="service-item">{service}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="no-services">No services added yet.</p>
-                          )}
-                        </div>
-                        
-                        <div className="add-service-container">
-                          <input
-                            className="service-input"
-                            type="text"
-                            placeholder="Add new service"
-                            value={newService}
-                            onChange={(e) => setNewService(e.target.value)}
-                          />
-                          <button className="add-service-btn" onClick={handleAddService}>+</button>
-                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="lawyer-form-layout">
+                <div className="lawyer-image-section">
+                  <div className="profile-image-container">
+                    {lawyer.profileImage ? (
+                      <img 
+                        src={lawyer.profileImage} 
+                        alt={lawyer.name}
+                        className="profile-image" 
+                      />
+                    ) : (
+                      <div className="profile-placeholder">
+                        <span className="profile-placeholder-text">{lawyer.name.charAt(0).toUpperCase()}</span>
                       </div>
-                      
-                      <div className="view-mode-actions">
-                        <Button 
-                          variant="primary" 
-                          icon="edit"
-                          onClick={handleEditToggle}
-                        >
-                          Edit Lawyer
-                        </Button>
-                        <Button 
-                          variant="danger" 
-                          icon="delete"
-                          onClick={initiateDelete}
-                        >
-                          Delete Lawyer
-                        </Button>
-                        <Button 
-                          variant="secondary" 
-                          onClick={() => navigate("/")}
-                        >
-                          Back to Dashboard
-                        </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="lawyer-details-section">
+                  <div className="lawyer-info-display">
+                    <div className="info-section">
+                      <h3 className="section-title">Personal Information</h3>
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <span className="info-label">Name:</span>
+                          <span className="info-value">{lawyer.name}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Email:</span>
+                          <span className="info-value">{lawyer.email}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Phone:</span>
+                          <span className="info-value">{lawyer.phone || "Not provided"}</span>
+                        </div>
                       </div>
                     </div>
-                  )}
+                    
+                    <div className="info-section">
+                      <h3 className="section-title">Professional Information</h3>
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <span className="info-label">Specialization:</span>
+                          <span className="info-value">{lawyer.specialization || "Not specified"}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">License Number:</span>
+                          <span className="info-value">{lawyer.licenseNumber || "Not provided"}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Experience:</span>
+                          <span className="info-value">{lawyer.experience ? `${lawyer.experience} years` : "Not specified"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="info-section">
+                      <h3 className="section-title">Assigned Secretary</h3>
+                      <SecretarySelector 
+                        adminId={lawyer.adminUID} 
+                        selectedSecretaryId={secretaryId}
+                        onChange={setSecretaryId}
+                        disabled={true}
+                      />
+                    </div>
+                    
+                    <div className="services-section">
+                      <h3 className="section-title">Services Offered</h3>
+                      <div className="services-list-container">
+                        {services.length > 0 ? (
+                          <ul className="services-list">
+                            {services.map((service, index) => (
+                              <li key={index} className="service-item">{service}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="no-services">No services added yet.</p>
+                        )}
+                      </div>
+                      
+                      <div className="add-service-container">
+                        <input
+                          className="service-input"
+                          type="text"
+                          placeholder="Add new service"
+                          value={newService}
+                          onChange={(e) => setNewService(e.target.value)}
+                        />
+                        <button className="add-service-btn" onClick={handleAddService}>+</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* Action buttons moved to bottom */}
+            <div className="lawyer-action-buttons">
+              {isEditing ? (
+                <div className="form-actions">
+                  <Button 
+                    variant="success" 
+                    onClick={handleSave}
+                  >
+                    Save Changes
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={handleCancel}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="lawyer-actions">
+                  <Button 
+                    variant="primary" 
+                    onClick={handleEditToggle}
+                  >
+                    Edit Lawyer
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={handleResetPassword}
+                  >
+                    Reset Password
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    onClick={initiateDelete}
+                  >
+                    Delete Lawyer
+                  </Button>
+                  <Button 
+                    variant="neutral" 
+                    onClick={() => navigate("/")}
+                  >
+                    Back to Dashboard
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </Card>
       </div>
