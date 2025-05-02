@@ -122,6 +122,11 @@ const ManageSecretary = () => {
     navigate("/add-secretary");
   };
 
+  // Handle back button click
+  const handleBack = () => {
+    navigate("/"); // Navigate back to the dashboard
+  };
+
   // Toggle editing mode
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -540,6 +545,13 @@ const ManageSecretary = () => {
       )}
       
       <main className="app-content">
+        {/* Back button at the top */}
+        <div className="back-button-container">
+          <button className="back-button" onClick={handleBack}>
+            Back
+          </button>
+        </div>
+        
         <Card className="secretary-management-card">
           <div className="card-header">
             <h2 className="card-title">
